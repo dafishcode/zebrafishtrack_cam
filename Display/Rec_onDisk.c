@@ -233,6 +233,15 @@ void ReadImageSeq(string prefix,char* display){
 
 int main(int argc, char** argv)
 {
+    if(argc<2){
+	    cout<<"Recording software."<<endl;
+	    cout<<"-------------------"<<endl;
+	    cout<<"Usage:"<<endl;
+	    cout<<"./Rec_onDisk <folder>"<<endl;
+	    cout<<"(note: folder is automatically generated when absent)"<<endl;
+            exit(0);
+    }
+
     //PrintBuildInfo();
     int i;
     BusManager busMgr;

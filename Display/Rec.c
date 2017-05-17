@@ -192,21 +192,21 @@ int RunSingleCamera(PGRGuid guid)
     return 0;
 }
 
-void ReadImageSeq(string prefix,int n_images){
+void ReadImageSeq(string prefix){
 	int ind=0;
-	vector<cv::Mat> image_seq(n_images);
-	for(unsigned int i=0;i<n_images;++i){
-		stringstream filename;
-		filename<<prefix<<'/'<<prefix<<"-"<<i<<".tiff";
-		image_seq[i]=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
-	}
+	cv::Mat image;
 	cv::namedWindow("display",cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
         cv::resizeWindow("display", 800,800);
-	cv::createTrackbar( "index", "display", &ind, n_images-1,  NULL);
 
         char c='1';
 	while(c!='q'){
-		imshow("display",image_seq[ind]);
+		if(c=='f') ind++;
+		if(c=='b') ind=max(0,ind-1);
+		stringstream filename;
+		filename<<prefix<<'/'<<prefix<<"-"<<ind<<".tiff";
+		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
+		if(!image.empty())
+			imshow("display",image);
                 c=cv::waitKey(10);
 	}
 }
@@ -219,7 +219,7 @@ int main(int argc, char** argv)
     PGRGuid guid;
     busMgr.GetCameraFromIndex(0, &guid);
     RunSingleCamera(guid);
-    ReadImageSeq("test",seq_size);
+    ReadImageSeq("test");
 
     return 0;
 }
