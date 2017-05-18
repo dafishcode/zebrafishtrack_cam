@@ -17,9 +17,11 @@ int main(int argc, char** argv)
     BusManager busMgr;
     PGRGuid guid;
     busMgr.GetCameraFromIndex(0, &guid);
+	Camera cam;
+	cam.Connect(&guid);
     
-    struct thread_data RSC_input;
-    RSC_input.guid = &guid;
+    struct thread_data2 RSC_input;
+    RSC_input.cam = &cam;
     RSC_input.proc_folder=argv[1];
     RSC_input.display="display";
     RSC_input.seq_size=seq_size;

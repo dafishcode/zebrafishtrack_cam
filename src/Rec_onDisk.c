@@ -29,9 +29,10 @@ int main(int argc, char** argv)
     BusManager busMgr;
     PGRGuid guid;
     busMgr.GetCameraFromIndex(0, &guid);
+	Camera cam; cam.Connect(&guid);
     
-    struct thread_data RSC_input;
-    RSC_input.guid = &guid;
+    struct thread_data2 RSC_input;
+    RSC_input.cam = &cam;
     RSC_input.proc_folder=argv[1];
     RSC_input.display="display";
     RSC_input.crop=atoi(argv[2]);
@@ -39,7 +40,7 @@ int main(int argc, char** argv)
     cv::namedWindow("display",cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
     cv::resizeWindow("display", 800,800);
 
-    Rec_onDisk_SingleCamera((void*)&RSC_input);
+    Rec_onDisk_SingleCamera2((void*)&RSC_input);
 
     ReadImageSeq(argv[1],"display");
 
