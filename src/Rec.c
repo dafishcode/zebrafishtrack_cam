@@ -5,7 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include<fstream>
-#include"../include/functions.h"
+#include"../include/functions2.h"
 
 using namespace std;
 using namespace FlyCapture2;

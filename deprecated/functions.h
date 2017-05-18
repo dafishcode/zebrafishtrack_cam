@@ -22,12 +22,23 @@ struct thread_data{
         bool crop;
 };
 
+struct thread_data2{
+	Camera *cam;
+	char* proc_folder;
+    char* display;
+    size_t seq_size;
+    bool crop;
+};
+
 void my_handler(int);
+
+void SetCam(Camera *,const Mode, const PixelFormat);
 
 void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);
 void PrintCameraInfo(CameraInfo *pCamInfo);
 int Rec_SingleCamera(void*);
 void *Rec_onDisk_SingleCamera(void *tdata);
+void *Rec_onDisk_SingleCamera2(void *tdata);
 void ReadImageSeq(string prefix,char* display);
 int Run_SingleCamera(PGRGuid);

@@ -216,49 +216,6 @@ int Rec_SingleCamera(void* tdata)
     return 0;
 }
 
-void SetCam(PGRGuid *guid, Camera *cam){
-
-    Error error;  
-
-    // Get the camera configuration
-    FC2Config config;
-    error = cam.GetConfiguration(&config);
-
-    // Set the number of driver buffers used to 10.
-    config.numBuffers = 10;
-
-    // Set the camera configuration
-    cam.SetConfiguration(&config);
-
-    // Set the custom image format7 
-    const Mode k_fmt7Mode = MODE_1;
-    const PixelFormat k_fmt7PixFmt = PIXEL_FORMAT_RAW8;
-
-    Format7Info fmt7Info;
-    bool supported;
-    fmt7Info.mode=k_fmt7Mode;
-    cam.GetFormat7Info(&fmt7Info, &supported);
-    Format7ImageSettings fmt7ImageSettings;
-    fmt7ImageSettings.mode = k_fmt7Mode;
-    fmt7ImageSettings.offsetX = 0;
-    fmt7ImageSettings.offsetY = 0;
-    fmt7ImageSettings.width = fmt7Info.maxWidth;
-    fmt7ImageSettings.height = fmt7Info.maxHeight;
-    fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
-    bool valid;
-    Format7PacketInfo fmt7PacketInfo;
-
-    cam.ValidateFormat7Settings(&fmt7ImageSettings, &valid, &fmt7PacketInfo);
-    cam.SetFormat7Configuration(&fmt7ImageSettings, fmt7PacketInfo.recommendedBytesPerPacket);   
-
-    CameraInfo cInfo;
-    cam.GetCameraInfo(&cInfo);
-    PrintCameraInfo(&cInfo);
-
-
-void Select_ROI(void *tdata, ioparam center){
-
-
 void *Rec_onDisk_SingleCamera(void *tdata)
 {
     signal(SIGINT,my_handler);

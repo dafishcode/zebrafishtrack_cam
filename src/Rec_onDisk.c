@@ -8,7 +8,7 @@
 #include<sys/stat.h>
 #include<signal.h>
 #include<cstdio>
-#include"../include/functions.h"
+#include"../include/functions2.h"
 
 using namespace std;
 using namespace FlyCapture2;

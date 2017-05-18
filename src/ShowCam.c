@@ -4,7 +4,7 @@
 #include <CameraBase.h>
 #include <iostream>
 #include <sstream>
-#include "../include/functions.h"
+#include "../include/functions2.h"
 
 using namespace FlyCapture2;
 using namespace std;
