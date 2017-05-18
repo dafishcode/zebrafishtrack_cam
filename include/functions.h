@@ -17,7 +17,9 @@ class ioparam {
 struct thread_data{
 	PGRGuid *guid;
 	char* proc_folder;
-    char* display;
+        char* display;
+        size_t seq_size;
+        bool crop;
 };
 
 void my_handler(int);
@@ -25,7 +27,7 @@ void my_handler(int);
 void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);
 void PrintCameraInfo(CameraInfo *pCamInfo);
-int Rec_SingleCamera(PGRGuid guid,int seq_size);
+int Rec_SingleCamera(void*);
 void *Rec_onDisk_SingleCamera(void *tdata);
 void ReadImageSeq(string prefix,char* display);
-int Run_SingleCamera(PGRGuid guid);
+int Run_SingleCamera(PGRGuid);

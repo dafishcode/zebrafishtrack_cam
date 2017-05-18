@@ -13,11 +13,18 @@ using namespace FlyCapture2;
 int main(int argc, char** argv)
 {
     //PrintBuildInfo();
-    int seq_size=5000;
+    size_t seq_size=5000;
     BusManager busMgr;
     PGRGuid guid;
     busMgr.GetCameraFromIndex(0, &guid);
-    Rec_SingleCamera(guid,seq_size);
+    
+    struct thread_data RSC_input;
+    RSC_input.guid = &guid;
+    RSC_input.proc_folder=argv[1];
+    RSC_input.display="display";
+    RSC_input.seq_size=seq_size;
+
+    Rec_SingleCamera((void*)&RSC_input);
     ReadImageSeq("test","display");
 
     return 0;

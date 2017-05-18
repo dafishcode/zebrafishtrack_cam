@@ -78,13 +78,26 @@ void PrintCameraInfo(CameraInfo *pCamInfo)
          << endl;
 }
 
-int Rec_SingleCamera(PGRGuid guid,int seq_size)
+int Rec_SingleCamera(void* tdata)
 {
-    Error error;   
+    Error error;  
+ 
+    struct thread_data * RSC_input;
+    RSC_input = (struct thread_data*) tdata;
+    size_t seq_size = RSC_input->seq_size;
+
+    struct stat sb;
+    if (stat(RSC_input->proc_folder, &sb) != 0){
+	    const int dir_err = mkdir(RSC_input->proc_folder, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	    if (-1 == dir_err){
+		    printf("Error creating directory!");
+		    exit(1);
+	    }
+    }
 
     // Connect to a camera
     Camera cam;
-    cam.Connect(&guid);
+    cam.Connect(RSC_input->guid);
 
     // Get the camera configuration
     FC2Config config;
@@ -140,7 +153,7 @@ int Rec_SingleCamera(PGRGuid guid,int seq_size)
     char key='a';
     bool recording=false;
     ioparam center;
-	ioparam tmp_center;
+    ioparam tmp_center;
     tmp_center.status=0;
     cv::setMouseCallback("display",on_mouse,&tmp_center);
     string yn;
@@ -285,7 +298,7 @@ void *Rec_onDisk_SingleCamera(void *tdata)
     char input;
     
     while(key!='q'){
-		if(tmp_center.status){
+		if(tmp_center.status && RSC_input->crop){
 			cvm.copyTo(drawing);
 			cv::rectangle(drawing,tmp_center.pt1,tmp_center.pt2,0,4,8,0);
 			ostringstream info; 
@@ -319,7 +332,11 @@ void *Rec_onDisk_SingleCamera(void *tdata)
 	    logfile<<i<<' '<<delta<<' '<<endl;
 	    data = rawImage.GetData();
 	    cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
-	    tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
+	    if(RSC_input->crop){
+		    tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
+	    } else {
+		    tmp_image=cvm;
+	    }
 	    stringstream filename;
 	    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";
 	    imwrite(filename.str().c_str(),tmp_image);

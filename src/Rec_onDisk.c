@@ -34,6 +34,7 @@ int main(int argc, char** argv)
     RSC_input.guid = &guid;
     RSC_input.proc_folder=argv[1];
     RSC_input.display="display";
+    RSC_input.crop=atoi(argv[2]);
     
     cv::namedWindow("display",cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
     cv::resizeWindow("display", 800,800);
