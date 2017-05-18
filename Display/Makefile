@@ -1,32 +1,28 @@
-# Handle environment variables
+CC	=	g++ -Wall
+OPENCV =  `pkg-config --libs opencv` 
+BINDIR = bin
+OBJDIR = .obj
+SRCDIR = src
+SOURCES_C := $(wildcard $(SRCDIR)/*.c)
+SOURCES_CPP  := $(wildcard $(SRCDIR)/*.cpp)
+OBJECTS  := $(SOURCES_CPP:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
+EXECUTABLES := $(SOURCES_C:$(SRCDIR)/%.c=$(BINDIR)/%)
 
-OPENCV    = `pkg-config --libs opencv`
-EXECUTABLES = ShowCam Rec
-INC       =  -I/usr/include/flycapture
-LIBS      =  -lflycapture 
-CXX       = g++
-OBJ      = 
+LIBS = -lflycapture ${OPENCV}
+INCS = -I /usr/include/flycapture
 
-# Master rule
-all: ${EXECUTABLES}
+all: $(EXECUTABLES)
 
-# Output binary
-$(EXECUTABLES): % : %.c $(OBJ)
-	$(CXX) -o $@ $< $(OBJ) $(LIBS) $(INC) $(OPENCV)
+$(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.cpp 
+	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS) $(INCS)
 
-# Intermediate object files
-$(OBJ): %.o : %.cpp
-	$(CXX) $(INC) $(OPENCV) -Wall -c $< 
+$(EXECUTABLES): $(BINDIR)/% : $(SRCDIR)/%.c $(OBJECTS) 
+	$(CC) -o $@ $< $(OBJECTS) $(LIBS) $(INCS)
 
-# Cleanup intermediate objects
-.PHONY: clean_obj
-clean_obj:
-	rm -f *.o 
-	@echo "obj cleaned up!"
+.PHONY: all clear
 
-# Cleanup everything
-.PHONY: clean
-clean: clean_obj
-	rm -f ${EXECUTABLES} *.o 
-	@echo "all cleaned up!"
+clean:
+	rm $(EXECUTABLES) 
+	rm $(OBJECTS)
+
 
