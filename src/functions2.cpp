@@ -14,7 +14,7 @@ using namespace FlyCapture2;
 
 bool run=true;
 
-std::string fixedLengthString(int value, int digits = 5) {
+std::string fixedLengthString(int value, int digits = 10) {
     unsigned int uvalue = value;
     if (value < 0) {
         uvalue = -uvalue;
@@ -296,9 +296,9 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
 	    stringstream filename;
 
-	    filename<<RSC_input->proc_folder<<"/"<< fixedLengthString(i) <<".tiff";
+	    filename<<RSC_input->proc_folder<<"/"<< fixedLengthString(i) <<".pgm";
         if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-	    imwrite(filename.str().c_str(),tmp_image);
+	    imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
 	    i++;
     } 
 
@@ -323,7 +323,7 @@ void ReadImageSeq(string prefix,char* display){
 		if(c=='f') ind++;
 		if(c=='b') ind=max(0,ind-1);
 		stringstream filename;
-		filename<<prefix<<'/'<<fixedLengthString(ind)<<".tiff";
+		filename<<prefix<<'/'<<fixedLengthString(ind)<<".pgm";
 		cout << filename.str() << endl;
 		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
 		if(!image.empty())
