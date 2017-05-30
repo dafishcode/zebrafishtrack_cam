@@ -261,7 +261,11 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     int recording=0;
     ioparam center;
     ioparam tmp_center;
-    ofstream logfile("log.txt");
+    
+    stringstream logfilename;
+    logfilename	<< RSC_input->proc_folder<<"/logfile.csv";
+    ofstream logfile(logfilename.str().c_str());
+
 	if(RSC_input->crop){
 		Select_ROI(RSC_input->cam, center , recording);
 		if(!recording){
@@ -319,10 +323,13 @@ void ReadImageSeq(string prefix,char* display){
 		if(c=='f') ind++;
 		if(c=='b') ind=max(0,ind-1);
 		stringstream filename;
-		filename<<prefix<<'/'<<ind<<".tiff";
+		filename<<prefix<<'/'<<fixedLengthString(ind)<<".tiff";
+		cout << filename.str() << endl;
 		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
 		if(!image.empty())
 			imshow(display,image);
+		else
+		  break;
 		c=cv::waitKey(10);
 	}
 }
