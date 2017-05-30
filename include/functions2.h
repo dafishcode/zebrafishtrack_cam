@@ -14,12 +14,22 @@ class ioparam {
 	bool status;
 };
 
+class F7 {
+	public:
+	FC2Config config;
+	Format7Info fmt7Info;
+	Format7ImageSettings fmt7ImageSettings;
+	Format7PacketInfo fmt7PacketInfo;
+	bool valid;
+	bool supported;
+};
+
 struct thread_data{
 	PGRGuid *guid;
 	char* proc_folder;
-        char* display;
-        size_t seq_size;
-        bool crop;
+	char* display;
+	size_t seq_size;
+	bool crop;
 };
 
 struct thread_data2{
@@ -32,7 +42,7 @@ struct thread_data2{
 
 void my_handler(int);
 
-void SetCam(Camera *,const Mode, const PixelFormat);
+void SetCam(Camera *,F7&,const Mode, const PixelFormat);
 
 void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);
