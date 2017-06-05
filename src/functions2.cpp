@@ -14,6 +14,23 @@ using namespace FlyCapture2;
 
 bool run=true;
 
+std::string fixedLengthString(int value, int digits = 10) {
+    unsigned int uvalue = value;
+    if (value < 0) {
+        uvalue = -uvalue;
+    }
+    std::string result;
+    while (digits-- > 0) {
+        result += ('0' + uvalue % 10);
+        uvalue /= 10;
+    }
+    if (value < 0) {
+        result += '-';
+    }
+    std::reverse(result.begin(), result.end());
+    return result;
+}
+
 void my_handler(int sig){
        cout<<endl<<"Recording stopped."<<endl;
 	   run=false;
@@ -245,6 +262,11 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     ioparam center;
     ioparam tmp_center;
     ofstream logfile("log.txt");
+    
+    stringstream logfilename;
+    logfilename	<< RSC_input->proc_folder<<"/logfile.csv";
+    ofstream logfile(logfilename.str().c_str());
+
 	if(RSC_input->crop){
 		Select_ROI(RSC_input->cam, center , recording);
 		if(!recording){
@@ -277,6 +299,10 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 	    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";
         if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
 	    imwrite(filename.str().c_str(),tmp_image);
+
+	    filename<<RSC_input->proc_folder<<"/"<< fixedLengthString(i) <<".pgm";
+        if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
+	    imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
 	    i++;
     } 
 
@@ -295,15 +321,19 @@ void ReadImageSeq(string prefix,char* display){
 	cv::namedWindow(display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
     cv::resizeWindow(display, 800,800);
 
+    cout << "Reading image sequence. Press q to exit." << endl;
     char c='1';
 	while(c!='q'){
 		if(c=='f') ind++;
 		if(c=='b') ind=max(0,ind-1);
 		stringstream filename;
-		filename<<prefix<<'/'<<ind<<".tiff";
+		filename<<prefix<<'/'<<fixedLengthString(ind)<<".pgm";
+		cout << filename.str() << endl;
 		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
 		if(!image.empty())
 			imshow(display,image);
+		else
+		  break;
 		c=cv::waitKey(10);
 	}
 }
