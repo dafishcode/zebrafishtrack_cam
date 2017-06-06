@@ -261,7 +261,6 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     int recording=0;
     ioparam center;
     ioparam tmp_center;
-    ofstream logfile("log.txt");
     
     stringstream logfilename;
     logfilename	<< RSC_input->proc_folder<<"/logfile.csv";
@@ -315,7 +314,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     return 0;
 }
 
-void ReadImageSeq(string prefix,char* display){
+void ReadImageSeq(string prefix,char* display, int mode, char* format){
 	int ind=0;
 	cv::Mat image;
 	cv::namedWindow(display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
@@ -327,8 +326,11 @@ void ReadImageSeq(string prefix,char* display){
 		if(c=='f') ind++;
 		if(c=='b') ind=max(0,ind-1);
 		stringstream filename;
-		filename<<prefix<<'/'<<fixedLengthString(ind)<<".pgm";
-		cout << filename.str() << endl;
+		if(mode==0){
+			filename<<prefix<<'/'<<fixedLengthString(ind)<<".pgm";
+		} else {
+			filename<<prefix<<'/'<<ind<<format;
+		}
 		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
 		if(!image.empty())
 			imshow(display,image);
