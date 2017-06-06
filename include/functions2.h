@@ -49,5 +49,5 @@ void PrintFormat7Capabilities(Format7Info fmt7Info);
 void PrintCameraInfo(CameraInfo *pCamInfo);
 int Rec_SingleCamera(void*);
 void *Rec_onDisk_SingleCamera2(void *tdata);
-void ReadImageSeq(string prefix,char* display,int mode=0,char* format=".pgm");
+void ReadImageSeq(string prefix,char* display,int mode=0,char* format=".pgm",char* prefix0="");
 int Run_SingleCamera(PGRGuid);

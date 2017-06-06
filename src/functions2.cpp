@@ -314,7 +314,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     return 0;
 }
 
-void ReadImageSeq(string prefix,char* display, int mode, char* format){
+void ReadImageSeq(string prefix,char* display, int mode, char* format,char* prefix0){
 	int ind=0;
 	cv::Mat image;
 	cv::namedWindow(display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
@@ -329,7 +329,7 @@ void ReadImageSeq(string prefix,char* display, int mode, char* format){
 		if(mode==0){
 			filename<<prefix<<'/'<<fixedLengthString(ind)<<".pgm";
 		} else {
-			filename<<prefix<<'/'<<ind<<format;
+			filename<<prefix<<'/'<<prefix0<<ind<<format;
 		}
 		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
 		if(!image.empty())

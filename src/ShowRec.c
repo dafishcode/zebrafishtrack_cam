@@ -19,7 +19,7 @@ int main(int argc, char** argv)
 	    cout<<"Recording Reader."<<endl;
 	    cout<<"-------------------"<<endl;
 	    cout<<"Usage:"<<endl;
-	    cout<<"./ShowRec <folder>"<<endl;
+	    cout<<"./ShowRec <folder> <prefix>"<<endl;
             exit(0);
     }
 
@@ -28,7 +28,7 @@ int main(int argc, char** argv)
     cv::namedWindow("display",cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
     cv::resizeWindow("display", 800,800);
 
-    ReadImageSeq(argv[1],"display",1,".tiff");
+    ReadImageSeq(argv[1],"display",1,".tiff",argv[2]);
 
     return 0;
 }
