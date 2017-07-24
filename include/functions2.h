@@ -1,3 +1,5 @@
+#pragma once
+
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <FlyCapture2.h>
@@ -40,14 +42,16 @@ struct thread_data2{
     bool crop;
 };
 
+
 void my_handler(int);
 
-void SetCam(Camera *,F7&,const Mode, const PixelFormat);
+void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, unsigned int& FrameRate);
 
+inline void PrintError(Error error) { error.PrintErrorTrace(); }
 void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);
 void PrintCameraInfo(CameraInfo *pCamInfo);
 int Rec_SingleCamera(void*);
-void *Rec_onDisk_SingleCamera2(void *tdata);
+void *Rec_onDisk_SingleCamera2(void *tdata,unsigned int cMaxFrames);
 void ReadImageSeq(string prefix,char* display,int mode=0,char* format=".pgm",char* prefix0="");
 int Run_SingleCamera(PGRGuid);

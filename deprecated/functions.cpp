@@ -12,11 +12,11 @@
 using namespace std;
 using namespace FlyCapture2;
 
-bool run=true;
+bool brun=true;
 
 void my_handler(int sig){
            cout<<endl<<"Recording stopped."<<endl;
-	   run=false;
+       brun=false;
 }
 
 void on_mouse(int event, int x, int y, int flags, void* p){
@@ -325,7 +325,7 @@ void *Rec_onDisk_SingleCamera(void *tdata)
     unsigned int i=0;
     long int ms0 = cv::getTickCount();
 
-    while(recording && run){
+    while(recording && brun){
 		cam.RetrieveBuffer(&rawImage);
 	    long int ms1 = cv::getTickCount(); 
 	    double delta = (ms1-ms0)/cv::getTickFrequency();

@@ -2,8 +2,6 @@ README.md
 deprecated/functions.cpp
 deprecated/functions.h
 include/functions2.h
-src/Rec.c
-src/RecProj.c
 src/Rec_onDisk.c
 src/ShowCam.c
 src/ShowRec.c

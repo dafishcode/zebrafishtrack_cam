@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <FlyCapture2.h>
@@ -12,7 +13,8 @@
 using namespace std;
 using namespace FlyCapture2;
 
-bool run=true;
+bool brun=true;
+unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 std::string fixedLengthString(int value, int digits = 10) {
     unsigned int uvalue = value;
@@ -33,7 +35,7 @@ std::string fixedLengthString(int value, int digits = 10) {
 
 void my_handler(int sig){
        cout<<endl<<"Recording stopped."<<endl;
-	   run=false;
+       brun=false;
 }
 
 void on_mouse(int event, int x, int y, int flags, void* p){
@@ -95,9 +97,14 @@ void PrintCameraInfo(CameraInfo *pCamInfo)
          << endl;
 }
 
-void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt){
+void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, unsigned int& FrameRate){
 
-    Error error;  
+    //Calculation from KB articleshttp://digital.ni.com/public.nsf/allkb/ED092614FCCC900D86256D8D004A3B0C
+    //TransferredFramesPerSecond = (BytesPerPacket * 8000) / (ImageWidth * ImageHeight * BytesPerPixel).
+    assert(k_fmt7PixFmt == PIXEL_FORMAT_RAW8); //Assume 8 bit raw data output of sensor
+    unsigned int targetFrameRate = f7.fmt7PacketInfo.recommendedBytesPerPacket*8000/(f7.fmt7Info.maxWidth*f7.fmt7Info.maxHeight*8);
+    //For 300 Fps then PacketSize Should be 92160 bytes
+    Error error;
 
     CameraInfo cInfo;
     cam->GetCameraInfo(&cInfo);
@@ -121,12 +128,53 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
     f7.fmt7ImageSettings.height = f7.fmt7Info.maxHeight;
     f7.fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
 
-    cam->ValidateFormat7Settings(&(f7.fmt7ImageSettings), &(f7.valid), &(f7.fmt7PacketInfo));
-    cam->SetFormat7Configuration(&(f7.fmt7ImageSettings), f7.fmt7PacketInfo.recommendedBytesPerPacket);   
+    error = cam->ValidateFormat7Settings(&(f7.fmt7ImageSettings), &(f7.valid), &(f7.fmt7PacketInfo));
+    if (error != PGRERROR_OK)
+    {
+           PrintError(error);
+           return ;
+    }
+    if (!f7.valid)
+     {
+         // Settings are not valid
+         std::cout << "Format7 settings are not valid" << std::endl;
+         return ;
+     }
 
-    
+    error = cam->SetFormat7Configuration(&(f7.fmt7ImageSettings), f7.fmt7PacketInfo.recommendedBytesPerPacket);
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return ;
+    }
+
+
+
+
 	// Start capturing images
-    cam->StartCapture();
+     error = cam->StartCapture();
+     if (error != PGRERROR_OK)
+     {
+          PrintError(error);
+          return ;
+     }
+
+
+     /// Retrieve frame rate property
+   Property frmRate;
+   frmRate.type = FRAME_RATE;
+   error = cam->GetProperty(&frmRate);
+   if (error != PGRERROR_OK)
+   {
+       PrintError(error);
+       return ;
+   }
+
+   std::cout << "Calculated Frame Rate is : " << targetFrameRate << std::endl;
+   std::cout << "Frame rate is " << fixed  << frmRate.absValue  << " fps" << std::endl;
+
+   FrameRate =  frmRate.absValue;
+
 }
 
 void CreateOutputFolder(char* folder){
@@ -244,8 +292,14 @@ int Rec_SingleCamera(void* tdata)
 }
 
 
-void *Rec_onDisk_SingleCamera2(void *tdata)
+void *Rec_onDisk_SingleCamera2(void *tdata,unsigned int cMaxFrames)
 {
+
+
+    unsigned int i          = 0;
+    long int ms0            = cv::getTickCount();
+    double dmFps            = 0.0;
+
     signal(SIGINT,my_handler);
     struct thread_data2 * RSC_input;
     RSC_input = (struct thread_data2*) tdata;
@@ -278,32 +332,57 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 		
     cout<<"RECORDING..."<<endl;
 
-    unsigned int i=0;
-    long int ms0 = cv::getTickCount();
 
-    while(recording && run){
+
+    while(recording && brun){
 		RSC_input->cam->RetrieveBuffer(&rawImage);
-	    long int ms1 = cv::getTickCount(); 
+
+        long int ms1 = cv::getTickCount();
 	    double delta = (ms1-ms0)/cv::getTickFrequency();
-	    logfile<<i<<' '<<delta<<' '<<endl;
+
+        logfile<<i<<' '<<delta<<' '<<endl;
+        dmFps += delta;
+
 	    data = rawImage.GetData();
-	    cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+
+
+        //Convert to openCV Matrix
+        cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+
+        ///Check whether Recording Should Stop by detecting Fish in the scene
+        if (i%300)
+            cv::imshow("Live View",cvm);
+
+
+
+        //Crop Image to REgion Of Interest - If Crop flag is set
 	    if(RSC_input->crop){
 		    tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
 	    } else {
 		    tmp_image=cvm;
 	    }
 
+
+
 	    stringstream filename;
-	    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";
-        if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-	    imwrite(filename.str().c_str(),tmp_image);
+//	    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";
+//        if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
+//	    imwrite(filename.str().c_str(),tmp_image);
 
 	    filename<<RSC_input->proc_folder<<"/"<< fixedLengthString(i) <<".pgm";
         if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
 	    imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
 	    i++;
-    } 
+
+        ///Check Limits
+        if (UINT_MAX == i || i == cMaxFrames ) //Full
+        {   std::cerr << "limit Of rec Period Reached";
+            brun = false;
+        }
+    }
+
+    //Report Mean FPS
+    std::cout << "Mean Capture FPS " << dmFps / (i+1);
 
     // Stop capturing images
     error = RSC_input->cam->StopCapture();
@@ -314,6 +393,9 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     return 0;
 }
 
+
+/// Called after recording is finished - this function shows each recorded image and allows to move through
+/// using keypress-
 void ReadImageSeq(string prefix,char* display, int mode, char* format,char* prefix0){
 	int ind=0;
 	cv::Mat image;
