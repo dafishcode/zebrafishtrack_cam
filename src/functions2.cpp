@@ -84,8 +84,8 @@ void PrintFormat7Capabilities(Format7Info fmt7Info)
     std::cout << "MODE:" << fmt7Info.mode << endl;
     std::cout << "Packet Size:" << fmt7Info.packetSize << endl;
 
-    unsigned int targetFrameRate = fmt7Info.packetSize/(fmt7Info.maxWidth*fmt7Info.maxHeight*8);
-    std::cout << "Calculated Frame Rate is:" << targetFrameRate << std::endl;
+    float targetFrameRate = (float)(fmt7Info.packetSize)/(fmt7Info.maxWidth*fmt7Info.maxHeight*8.0);
+    std::cout << "Calculated Frame Rate is:" << fixed << targetFrameRate << std::endl;
 
 
     std::cout << "----------------" << std::endl;
@@ -111,7 +111,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
     //Calculation from KB articleshttp://digital.ni.com/public.nsf/allkb/ED092614FCCC900D86256D8D004A3B0C
     //TransferredFramesPerSecond = (BytesPerPacket * 8000) / (ImageWidth * ImageHeight * BytesPerPixel).
     assert(k_fmt7PixFmt == PIXEL_FORMAT_RAW8); //Assume 8 bit raw data output of sensor
-    unsigned int targetFrameRate = f7.fmt7Info.packetSize/(f7.fmt7Info.maxWidth*f7.fmt7Info.maxHeight*8);
+   //float targetFrameRate = (float)(f7.fmt7Info.packetSize)/(f7.fmt7Info.maxWidth*f7.fmt7Info.maxHeight*8.0);
     //For 300 Fps then PacketSize Should be 92160 bytes
     Error error;
 
@@ -169,17 +169,70 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
         return ;
     }
 
-    Property frmRate;
-    frmRate.type = FRAME_RATE;
-    frmRate.absValue = targetFrameRate;
-//    error = cam->SetProperty(&frmRate,true);
-//    if (error != PGRERROR_OK)
-//    {
-//         PrintError(error);
-//         return ;
-//    }
+    ///SHUTTER - FRAME RATE CONTROL
+    // Check if the camera supports the FRAME_RATE property
+    PropertyInfo propInfo;
+    propInfo.type = FRAME_RATE;
+    error = cam->GetPropertyInfo(&propInfo);
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return;
+    }
 
-	// Start capturing images
+
+    if (propInfo.present == true)
+     {
+         // Turn off frame rate
+         Property prop;
+         prop.type = FRAME_RATE;
+         error = cam->GetProperty(&prop);
+         if (error != PGRERROR_OK)
+         {
+             PrintError(error);
+             return ;
+         }
+
+         prop.autoManualMode = false;
+         prop.onOff = false;
+         prop.absControl = true;
+         prop.absValue = 300;
+         error = cam->SetProperty(&prop);
+         if (error != PGRERROR_OK)
+         {
+             PrintError(error);
+             return ;
+         }
+
+         std::cout << "FrameRate set to to " << fixed << prop.absValue << " fps" << std::endl;
+    } //If Frame Rate Property Exists
+
+     // Set the shutter property of the camera
+    Property prop;
+     prop.type = SHUTTER;
+     error = cam->GetProperty(&prop);
+     if (error != PGRERROR_OK)
+     {
+         PrintError(error);
+         return ;
+     }
+
+     prop.autoManualMode = false;
+     prop.absControl = true;
+
+     const float k_shutterVal = 3270.0;
+     prop.absValue = k_shutterVal;
+
+     error = cam->SetProperty(&prop);
+     if (error != PGRERROR_OK)
+     {
+         PrintError(error);
+         return;
+     }
+
+     cout << "Shutter time set to " << fixed << k_shutterVal << "ms" << endl;
+
+     /// Start capturing images
      error = cam->StartCapture();
      if (error != PGRERROR_OK)
      {
@@ -189,7 +242,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
 
 
      /// Retrieve frame rate property
-
+   Property frmRate;
    frmRate.type = FRAME_RATE;
    error = cam->GetProperty(&frmRate);
    if (error != PGRERROR_OK)
@@ -198,10 +251,10 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
        return ;
    }
 
-   std::cout << "Calculated Frame Rate is : " << targetFrameRate << std::endl;
+//   std::cout << "Calculated Frame Rate is : " << targetFrameRate << std::endl;
    std::cout << "Frame rate is " << fixed  << frmRate.absValue  << " fps" << std::endl;
 
-   FrameRate =  frmRate.absValue;
+   //FrameRate =  frmRate.absValue;
 
 }
 
