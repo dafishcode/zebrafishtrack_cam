@@ -1,4 +1,3 @@
 deprecated
 include
-
-/usr/include/flycapture
+/usr/include/flycapture/

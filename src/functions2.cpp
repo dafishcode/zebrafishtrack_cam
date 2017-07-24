@@ -73,13 +73,22 @@ void PrintBuildInfo()
 
 void PrintFormat7Capabilities(Format7Info fmt7Info)
 {
-    cout << "Max image pixels: (" << fmt7Info.maxWidth << ", "
+    std::cout << "----------------" << std::endl;
+    std::cout << "Max image pixels: (" << fmt7Info.maxWidth << ", "
          << fmt7Info.maxHeight << ")" << endl;
-    cout << "Image Unit size: (" << fmt7Info.imageHStepSize << ", "
+    std::cout << "Image Unit size: (" << fmt7Info.imageHStepSize << ", "
          << fmt7Info.imageVStepSize << ")" << endl;
-    cout << "Offset Unit size: (" << fmt7Info.offsetHStepSize << ", "
+    std::cout << "Offset Unit size: (" << fmt7Info.offsetHStepSize << ", "
          << fmt7Info.offsetVStepSize << ")" << endl;
-    cout << "Pixel format bitfield: 0x" << fmt7Info.pixelFormatBitField << endl;
+    std::cout << "Pixel format bitfield: 0x" << fmt7Info.pixelFormatBitField << endl;
+    std::cout << "MODE:" << fmt7Info.mode << endl;
+    std::cout << "Packet Size:" << fmt7Info.packetSize << endl;
+
+    unsigned int targetFrameRate = fmt7Info.packetSize/(fmt7Info.maxWidth*fmt7Info.maxHeight*8);
+    std::cout << "Calculated Frame Rate is:" << targetFrameRate << std::endl;
+
+
+    std::cout << "----------------" << std::endl;
 }
 
 void PrintCameraInfo(CameraInfo *pCamInfo)
@@ -93,8 +102,8 @@ void PrintCameraInfo(CameraInfo *pCamInfo)
     cout << "Sensor - " << pCamInfo->sensorInfo << endl;
     cout << "Resolution - " << pCamInfo->sensorResolution << endl;
     cout << "Firmware version - " << pCamInfo->firmwareVersion << endl;
-    cout << "Firmware build time - " << pCamInfo->firmwareBuildTime << endl
-         << endl;
+    cout << "Firmware build time - " << pCamInfo->firmwareBuildTime << endl;
+
 }
 
 void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, unsigned int& FrameRate){
@@ -102,16 +111,21 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
     //Calculation from KB articleshttp://digital.ni.com/public.nsf/allkb/ED092614FCCC900D86256D8D004A3B0C
     //TransferredFramesPerSecond = (BytesPerPacket * 8000) / (ImageWidth * ImageHeight * BytesPerPixel).
     assert(k_fmt7PixFmt == PIXEL_FORMAT_RAW8); //Assume 8 bit raw data output of sensor
-    unsigned int targetFrameRate = f7.fmt7PacketInfo.recommendedBytesPerPacket*8000/(f7.fmt7Info.maxWidth*f7.fmt7Info.maxHeight*8);
+    unsigned int targetFrameRate = f7.fmt7Info.packetSize/(f7.fmt7Info.maxWidth*f7.fmt7Info.maxHeight*8);
     //For 300 Fps then PacketSize Should be 92160 bytes
     Error error;
+
 
     CameraInfo cInfo;
     cam->GetCameraInfo(&cInfo);
     PrintCameraInfo(&cInfo);
-
+    std::cout << "Get Camera Config:" << std::endl;
     error = cam->GetConfiguration(&(f7.config));
-
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return ;
+    }
     // Set the number of driver buffers used to 10.
     f7.config.numBuffers = 10;
 
@@ -119,8 +133,14 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
     cam->SetConfiguration(&(f7.config));
 
     f7.fmt7Info.mode=k_fmt7Mode;
-    cam->GetFormat7Info(&(f7.fmt7Info), &(f7.supported));
+    error = cam->GetFormat7Info(&(f7.fmt7Info), &(f7.supported));
+    if (error != PGRERROR_OK)
+    {
+        PrintError(error);
+        return ;
+    }
 	PrintFormat7Capabilities(f7.fmt7Info);
+
     f7.fmt7ImageSettings.mode = k_fmt7Mode;
     f7.fmt7ImageSettings.offsetX = 0;
     f7.fmt7ImageSettings.offsetY = 0;
@@ -128,6 +148,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
     f7.fmt7ImageSettings.height = f7.fmt7Info.maxHeight;
     f7.fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
 
+    std::cout << "Validating Format7 Settings..." << std::endl;
     error = cam->ValidateFormat7Settings(&(f7.fmt7ImageSettings), &(f7.valid), &(f7.fmt7PacketInfo));
     if (error != PGRERROR_OK)
     {
@@ -148,8 +169,15 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
         return ;
     }
 
-
-
+    Property frmRate;
+    frmRate.type = FRAME_RATE;
+    frmRate.absValue = targetFrameRate;
+//    error = cam->SetProperty(&frmRate,true);
+//    if (error != PGRERROR_OK)
+//    {
+//         PrintError(error);
+//         return ;
+//    }
 
 	// Start capturing images
      error = cam->StartCapture();
@@ -161,7 +189,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
 
 
      /// Retrieve frame rate property
-   Property frmRate;
+
    frmRate.type = FRAME_RATE;
    error = cam->GetProperty(&frmRate);
    if (error != PGRERROR_OK)
@@ -462,10 +490,12 @@ int Run_SingleCamera(PGRGuid guid)
     fmt7ImageSettings.width = fmt7Info.maxWidth;
     fmt7ImageSettings.height = fmt7Info.maxHeight;
     fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
+
     bool valid;
     Format7PacketInfo fmt7PacketInfo;
 
     cam.ValidateFormat7Settings(&fmt7ImageSettings, &valid, &fmt7PacketInfo);
+
     cam.SetFormat7Configuration(&fmt7ImageSettings, fmt7PacketInfo.recommendedBytesPerPacket);   
 
     // Start capturing images

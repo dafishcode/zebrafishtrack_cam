@@ -17,8 +17,8 @@ INCS = -I /usr/include/flycapture
 DBGCFLAGS = -g -O0 -DDEBUG
 
 
-CXXFLAGS = -g3 -gdwarf2
-CCFLAGS = -g3 -gdwarf2
+CXXFLAGS = -g3 -gdwarf-2
+CCFLAGS = -g3 -gdwarf-2
 
 ##Default
 all: prep release
@@ -29,7 +29,7 @@ $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS) $(INCS)
 
 $(EXECUTABLES): $(BINDIR)/% : $(SRCDIR)/%.c $(OBJECTS)
-	$(CC) -o $@ $< $(OBJECTS) $(LIBS) $(INCS)
+	$(CC) -o $@ $< $(OBJECTS) $(LIBS) $(INCS) 
 
 #
 # Debug rules
@@ -39,10 +39,10 @@ debug: CXXFLAGS += -DDEBUG -g
 debug: CCFLAGS += -DDEBUG -g
 
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
-	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS) $(INCS)
+	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS) $(INCS) 
 
 $(DBGEXECUTABLES): $(DBGDIR)/% : $(SRCDIR)/%.c $(OBJECTS)
-	$(CC) -o $@ $< $(OBJECTS) $(LIBS) $(INCS)
+	$(CC) -o $@ $< $(OBJECTS) $(LIBS) $(INCS) 
 
 
 .PHONY: all clear

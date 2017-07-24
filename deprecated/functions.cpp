@@ -61,6 +61,10 @@ void PrintFormat7Capabilities(Format7Info fmt7Info)
     cout << "Offset Unit size: (" << fmt7Info.offsetHStepSize << ", "
          << fmt7Info.offsetVStepSize << ")" << endl;
     cout << "Pixel format bitfield: 0x" << fmt7Info.pixelFormatBitField << endl;
+
+    cout << "Packet Size :" << fmt7Info.packetSize << endl;
+    cout << "MODE :" << fmt7Info.mode << endl;
+
 }
 
 void PrintCameraInfo(CameraInfo *pCamInfo)

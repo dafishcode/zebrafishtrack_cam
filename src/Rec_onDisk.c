@@ -2,6 +2,8 @@
 #include <opencv2/highgui.hpp>
 #include <FlyCapture2.h>
 #include <CameraBase.h>
+#include <FlyCapture2Defs.h>
+#include <FlyCapture2Platform.h>
 #include <iostream>
 #include <sstream>
 #include<fstream>
@@ -9,6 +11,7 @@
 #include<signal.h>
 #include<cstdio>
 #include"../include/functions2.h"
+
 
 using namespace std;
 using namespace FlyCapture2;
@@ -34,10 +37,19 @@ int main(int argc, char** argv)
     Error error;
     BusManager busMgr;
     PGRGuid guid;
-    VideoMode* cVidMod;
-    FrameRate* cFps;
+    VideoMode cVidMod;
+    FrameRate cFps;
     F7 f7;
     Mode k_fmt7Mode = MODE_1; //Default
+    unsigned int numCameras;
+    error = busMgr.GetNumOfCameras(&numCameras);
+    if (error != PGRERROR_OK)
+   {
+       PrintError(error);
+       return -1;
+   }
+   std::cout << "There N=" << numCameras << " Cameras connected " << std::endl;
+
 
     error = busMgr.GetCameraFromIndex(0, &guid);
     if (error != PGRERROR_OK)
@@ -49,15 +61,20 @@ int main(int argc, char** argv)
 
     const PixelFormat k_fmt7PixFmt = PIXEL_FORMAT_RAW8;
     if(atoi(argv[1])==0)
+    {
         k_fmt7Mode=MODE_0;
+    }
     else
+    {
         k_fmt7Mode=MODE_1;
+    }
 	
     //Connect to Cam
     Camera cam;
     error = cam.Connect(&guid);
     if (error != PGRERROR_OK)
    {
+       cam.Disconnect();
        PrintError(error);
        return -1;
    }
@@ -67,6 +84,7 @@ int main(int argc, char** argv)
     Format7Info fmt7Info;
     bool supported;
     fmt7Info.mode = k_fmt7Mode;
+
     error = cam.GetFormat7Info(&fmt7Info, &supported);
     if (error != PGRERROR_OK)
     {
@@ -82,9 +100,9 @@ int main(int argc, char** argv)
 
 
     ///Print Mode Information
-    cam.GetVideoModeAndFrameRate(cVidMod,cFps);
+    cam.GetVideoModeAndFrameRate(&cVidMod,&cFps);
     std::cout << "///// Current Camera Video Mode ////" << std::endl;
-    std::cout << "Vid Mode :" << *cVidMod << " Fps Mode Set: " << *cFps << std::endl;
+    std::cout << "Vid Mode :" << cVidMod << " Fps Mode Set: " << cFps << std::endl;
 
    // cam.SetVideoModeandFrameRate( VIDEOMODE_640x480Y8 , FRAMERATE_FORMAT7 );
     if ((k_fmt7PixFmt & fmt7Info.pixelFormatBitField) == 0)
@@ -111,5 +129,7 @@ int main(int argc, char** argv)
 
     ReadImageSeq(argv[2],"display");
 
+    cam.StopCapture();
+    cam.Disconnect();
     return 0;
 }
