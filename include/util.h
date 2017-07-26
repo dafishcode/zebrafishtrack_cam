@@ -20,7 +20,8 @@ using namespace std;
 using namespace FlyCapture2;
 
 
-extern sem_t   semImgCap;////Semaphore for image Captured Signal
+extern sem_t   semImgCapCount;////Semaphore for image Captured Signal
+extern sem_t semImgFishDetected; //There is a fish In the scene lock
 extern pthread_cond_t cond;
 extern pthread_mutex_t lock;
 extern bool bImgCaptured;/// Global Flag indicating new Image Has been captured by camera
@@ -42,14 +43,17 @@ class F7 {
 	bool supported;
 };
 
+///Used for Image Display And Processing function
 struct thread_data{
-	PGRGuid *guid;
+    string prefix;
     string proc_folder;
-    string display;
-	size_t seq_size;
-	bool crop;
+    string windisplay;
+    int mode;
+    char* format;
+    string prefix0;
 };
 
+///Used for Image Capture
 struct thread_data2{
 	Camera *cam;
     string proc_folder;
@@ -70,7 +74,7 @@ void PrintFormat7Capabilities(Format7Info fmt7Info);
 void PrintCameraInfo(CameraInfo *pCamInfo);
 int Rec_SingleCamera(void*);
 void *Rec_onDisk_SingleCamera2(void *tdata);
-void ReadImageSeq(string prefix,string display,int mode=0,char* format=ZR_OUTPICFORMAT,char* prefix0="");
+void *ReadImageSeq(void *tdata);
 int Run_SingleCamera(PGRGuid);
 
 #endif

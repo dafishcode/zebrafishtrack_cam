@@ -448,8 +448,8 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 	    data = rawImage.GetData();
 
 
-        //Convert to openCV Matrix
-        cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+        //Convert to openCV Matrix - No Need
+        //cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
 
         ///Check whether Recording Should Stop by detecting Fish in the scene
         //if (i%300 == 0)
@@ -459,29 +459,38 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
         //Crop Image to REgion Of Interest - If Crop flag is set
         ///\todo Place This in the Camera Settings
-	    if(RSC_input->crop){
-		    tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
-	    } else {
-		    tmp_image=cvm;
-	    }
-
+//	    if(RSC_input->crop){
+            //tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
+//	    } else {
+//		    tmp_image=cvm;
+//	    }
 
 
 	    stringstream filename;
-//	    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";
-//        if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-//	    imwrite(filename.str().c_str(),tmp_image);
+        filename<< RSC_input->proc_folder << "/" << fixedLengthString(i) <<".pgm";
+        //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
 
-	    filename<<RSC_input->proc_folder<<"/"<< fixedLengthString(i) <<".pgm";
-        if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-        imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
-	    i++;
+        rawImage.Save(filename.str().c_str());
+        sem_post(&semImgCapCount); //Notify / Increment Image Count
+        i++;
+        //imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
+
 
         ///Check Limits
         if (UINT_MAX == i || i == cMaxFrames ) //Full
         {   std::cerr << "limit Of rec Period Reached";
             brun = false;
         }
+
+        //Read in If Recording Needs to End
+        int value;
+        sem_getvalue(&semImgFishDetected, &value); //Read Current Frame
+
+        if (value == 0)
+        {
+           brun= false;
+        }
+
     }
 
     //Report Mean FPS
@@ -499,30 +508,63 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
 /// Called after recording is finished - this function shows each recorded image and allows to move through
 /// using keypress-
-void ReadImageSeq(string prefix,string display, int mode, char* format,char* prefix0){
+void *ReadImageSeq(void* tdata){
 	int ind=0;
-	cv::Mat image;
-	cv::namedWindow(display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
-    cv::resizeWindow(display, 800,800);
+    int nImgDisplayed = 0;
+
+    cv::Mat cvimage;
+    struct thread_data * Reader_input; //Get Thread Parameters
+
+    Reader_input =  (struct thread_data *)tdata; //Cast To CXorrect pointer Type
+
+
 
     cout << "Reading image sequence. Press q to exit." << endl;
     char c='1';
 	while(c!='q'){
-		if(c=='f') ind++;
+
+        c=cv::waitKey(20);
+
+        sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
+        int value;
+        sem_getvalue(&semImgCapCount, &value); //Read Current Frame
+        printf("The value of the semaphors is %d\n", value);
+
+        ind = value+nImgDisplayed-1; //Semaphore Value Should be number of images Not Display Yet (ie Sem Incrmenets)
+
+        if(c=='f') ind++;
 		if(c=='b') ind=max(0,ind-1);
+
 		stringstream filename;
-		if(mode==0){
-            filename<<prefix<<'/'<<fixedLengthString(ind)<< ZR_OUTPICFORMAT;
+        if(Reader_input->mode==0){
+            filename<< Reader_input->proc_folder <<'/'<<fixedLengthString(ind)<< ZR_OUTPICFORMAT;
 		} else {
-			filename<<prefix<<'/'<<prefix0<<ind<<format;
+            filename <<  Reader_input->proc_folder   << '/' << Reader_input->prefix0 << fixedLengthString(ind) << Reader_input->format;
 		}
-		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
-		if(!image.empty())
-			imshow(display,image);
+
+        std::cout << filename.str().c_str() << std::endl;
+        cvimage=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
+        if(!cvimage.empty())
+        {
+            nImgDisplayed++;
+            //cv::destroyWindow("display");
+            cv::imshow(Reader_input->windisplay,cvimage);
+
+        }
 		else
-		  break;
-		c=cv::waitKey(10);
+        {
+          continue; //Wait Until Q Is pressed
+        }
+
+        ///Process Image - Check If Fish Is in there
+        //Tell Recorded Fish Is Here
+
+
+
 	}
+
+    sem_wait(&semImgFishDetected); //Decrement Value Of Fish Exists - And So Stop Recording
+
 }
 
 int Run_SingleCamera(PGRGuid guid)

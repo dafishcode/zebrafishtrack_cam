@@ -21,7 +21,8 @@ using namespace std;
 using namespace FlyCapture2;
 
 
-sem_t   semImgCap;////Semaphore for image Captured Signal
+sem_t   semImgCapCount;////Semaphore for image Captured Signal
+sem_t   semImgFishDetected;////Semaphore for Fish Detected
 pthread_cond_t cond;
 pthread_mutex_t lock    = PTHREAD_MUTEX_INITIALIZER;
 bool bImgCaptured       = false;/// Global Flag indicating new Image Has been captured by camera
@@ -79,7 +80,7 @@ int main(int argc, char** argv)
     int iCrop           = parser.get<int>("@crop");
     float fshutter      = parser.get<float>("shutter");
     uint uiduration     = parser.get<uint>("duration");
-    string soutFolder   = parser.get<string>(1);
+    string soutFolder   = parser.get<string>("@outputDir");
     bool use_time_stamp = parser.has("timestamp");
 
 
@@ -162,13 +163,12 @@ int main(int argc, char** argv)
     RSC_input.crop              = iCrop;
     RSC_input.MaxFrameDuration =  fFrameRate*uiduration; //Calc Max Frames given camera FPS
 
-    
-    cv::namedWindow(RSC_input.display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
-    cv::resizeWindow(RSC_input.display, fmt7Info.maxHeight,fmt7Info.maxWidth);
+    //init Semaphore
+    sem_init(&semImgCapCount,0,0);
+    sem_init(&semImgFishDetected,0,1); //Initially In Run
 
 
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);
-
     //Start The Recording Thread
     if (pthread_create(&tidRec, NULL, &Rec_onDisk_SingleCamera2, (void *)&RSC_input) != 0) {
         printf("Oh Ohh... Thread for Camera recording Rec_onDisk_SingleCamera2 could not start :( \n");
@@ -177,12 +177,42 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
+    //cv::namedWindow(RSC_input.display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+    //cv::resizeWindow(RSC_input.display, fmt7Info.maxHeight,fmt7Info.maxWidth);
 
+    struct thread_data ReaderFnArgs;
+    ReaderFnArgs.mode           = 0; //How to Save File Mode
+    ReaderFnArgs.proc_folder    = soutFolder;
+    ReaderFnArgs.prefix0        =  string("");
+    ReaderFnArgs.windisplay     = RSC_input.display;
+    ReaderFnArgs.format         = ZR_OUTPICFORMAT;
+
+    if (pthread_create(&tidDisplay, NULL, &ReadImageSeq, (void *)&ReaderFnArgs) != 0) {
+        printf("Oh Ohh... Thread for Camera Display ReadImageSeq could not start :( \n");
+        cam.StopCapture();
+        cam.Disconnect();
+        return -1;
+    }
+
+
+    //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
+    //pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
+
+    char c = 0;
+    while(c!='q'){
+        //What for Quit
+        c=cv::waitKey(100);
+    }
+
+
+    sem_destroy(&semImgCapCount);
+    sem_destroy(&semImgFishDetected);
     cam.StopCapture();
     cam.Disconnect();
 
-    ReadImageSeq(soutFolder,RSC_input.display);
+
+
+
 
     return 0;
 }
