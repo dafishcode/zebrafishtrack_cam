@@ -530,7 +530,7 @@ void *ReadImageSeq(void* tdata){
         sem_getvalue(&semImgCapCount, &value); //Read Current Frame
         printf("The value of the semaphors is %d\n", value);
 
-        ind = value+nImgDisplayed-1; //Semaphore Value Should be number of images Not Display Yet (ie Sem Incrmenets)
+        ind = value+nImgDisplayed; //Semaphore Value Should be number of images Not Display Yet (ie Sem Incrmenets)
 
         if(c=='f') ind++;
 		if(c=='b') ind=max(0,ind-1);
