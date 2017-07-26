@@ -1,19 +1,23 @@
-#include <limits.h>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
-#include <FlyCapture2.h>
-#include <CameraBase.h>
 #include <iostream>
 #include <sstream>
 #include<fstream>
 #include<signal.h>
 #include<sys/stat.h>
-#include"../include/functions2.h"
+#include"../include/util.h"
+
+#include <limits.h>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+
+#include <FlyCapture2.h>
+#include <Utilities.h>
+#include <CameraBase.h>
+
 
 using namespace std;
 using namespace FlyCapture2;
 
-bool brun=true;
+bool brun=true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 std::string fixedLengthString(int value, int digits = 10) {
@@ -106,7 +110,9 @@ void PrintCameraInfo(CameraInfo *pCamInfo)
 
 }
 
-void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, unsigned int& FrameRate){
+/// Remove Auto from Shutter and FrameRate
+/// Set to Fixed/Desired Framerate (On / No Auto) and shutter speed (No Auto).
+void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, float& pfFrameRate,float& fshutter){
 
     //Calculation from KB articleshttp://digital.ni.com/public.nsf/allkb/ED092614FCCC900D86256D8D004A3B0C
     //TransferredFramesPerSecond = (BytesPerPacket * 8000) / (ImageWidth * ImageHeight * BytesPerPixel).
@@ -194,7 +200,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
          }
 
          prop.autoManualMode = false;
-         prop.onOff = false;
+         prop.onOff = true;
          prop.absControl = true;
          prop.absValue = 300;
          error = cam->SetProperty(&prop);
@@ -209,18 +215,18 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
 
      // Set the shutter property of the camera
     Property prop;
-     prop.type = SHUTTER;
-     error = cam->GetProperty(&prop);
-     if (error != PGRERROR_OK)
-     {
+    prop.type = SHUTTER;
+    error = cam->GetProperty(&prop);
+    if (error != PGRERROR_OK)
+    {
          PrintError(error);
          return ;
-     }
+    }
 
      prop.autoManualMode = false;
      prop.absControl = true;
 
-     const float k_shutterVal = 3270.0;
+     const float k_shutterVal = 3.00;//3ms Shutter speed
      prop.absValue = k_shutterVal;
 
      error = cam->SetProperty(&prop);
@@ -240,7 +246,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
           return ;
      }
 
-
+    ///// VERIFY SETTINGS ////
      /// Retrieve frame rate property
    Property frmRate;
    frmRate.type = FRAME_RATE;
@@ -251,17 +257,28 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
        return ;
    }
 
-//   std::cout << "Calculated Frame Rate is : " << targetFrameRate << std::endl;
-   std::cout << "Frame rate is " << fixed  << frmRate.absValue  << " fps" << std::endl;
+   std::cout << " Camera Frame rate is " << fixed  << frmRate.absValue  << " fps" << std::endl;
 
-   //FrameRate =  frmRate.absValue;
+   pfFrameRate =  frmRate.absValue;
 
+
+   /// Retrieve Shutter property
+     Property propShutter;
+     frmRate.type = SHUTTER;
+     error = cam->GetProperty(&propShutter);
+     if (error != PGRERROR_OK)
+     {
+         PrintError(error);
+         return ;
+     }
+
+    std::cout << " Camera Shutter set " << fixed  << propShutter.absValue  << " ms" << std::endl;
 }
 
-void CreateOutputFolder(char* folder){
+void CreateOutputFolder(string folder){
     struct stat sb;
-    if (stat(folder, &sb) != 0){
-	    const int dir_err = mkdir(folder, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    if (stat(folder.c_str(), &sb) != 0){
+        const int dir_err = mkdir(folder.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	    if (-1 == dir_err){
 		    printf("Error creating directory!");
 		    exit(1);
@@ -273,8 +290,8 @@ void Select_ROI(Camera *cam, ioparam &center, int &recording){
 
     Image rawImage;
     cv::Mat tmp_image;
-    cv::namedWindow("display",cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
-    cv::resizeWindow("display", 800,800);
+    cv::namedWindow(ZR_WINDOWNAME,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+    cv::resizeWindow(ZR_WINDOWNAME, 800,800);
 
     // Retrieve a single image
     cam->RetrieveBuffer(&rawImage);
@@ -285,7 +302,7 @@ void Select_ROI(Camera *cam, ioparam &center, int &recording){
     char key='a';
     ioparam tmp_center;
     tmp_center.status=0;
-    cv::setMouseCallback("display",on_mouse,&tmp_center);
+    cv::setMouseCallback(ZR_WINDOWNAME,on_mouse,&tmp_center);
     string yn;
     cv::Mat drawing;
     cvm.copyTo(drawing);
@@ -295,11 +312,11 @@ void Select_ROI(Camera *cam, ioparam &center, int &recording){
 			cvm.copyTo(drawing);
 			cv::rectangle(drawing,tmp_center.pt1,tmp_center.pt2,0,4,8,0);
 			ostringstream info;
-			info<<"center = ("<<tmp_center.center.x<<','<<tmp_center.center.y<<")";
-			cv::imshow("display",drawing);
-			cv::displayStatusBar("display",info.str(),0);
+            info<<"center = (" << tmp_center.center.x <<',' <<tmp_center.center.y << ")";
+            cv::imshow(ZR_WINDOWNAME,drawing);
+            cv::displayStatusBar(ZR_WINDOWNAME,info.str(),0);
 			center=tmp_center;
-		} else cv::imshow("display",drawing);
+        } else cv::imshow(ZR_WINDOWNAME,drawing);
 
 	    key=cv::waitKey(10); 
 		if(key=='r'){
@@ -308,7 +325,7 @@ void Select_ROI(Camera *cam, ioparam &center, int &recording){
 	    }
     }
 
-    cv::destroyWindow("display");
+    cv::destroyWindow(ZR_WINDOWNAME);
 }
 
 int Rec_SingleCamera(void* tdata)
@@ -372,8 +389,10 @@ int Rec_SingleCamera(void* tdata)
     return 0;
 }
 
-
-void *Rec_onDisk_SingleCamera2(void *tdata,unsigned int cMaxFrames)
+/// \brief Rec_onDisk_SingleCamera2 Captures images from Camera And Saves them to disk
+/// Signals Display Function Using Semaphor
+///  Called by Recording Thread To begin Camera Capture
+void *Rec_onDisk_SingleCamera2(void *tdata)
 {
 
 
@@ -382,8 +401,10 @@ void *Rec_onDisk_SingleCamera2(void *tdata,unsigned int cMaxFrames)
     double dmFps            = 0.0;
 
     signal(SIGINT,my_handler);
-    struct thread_data2 * RSC_input;
-    RSC_input = (struct thread_data2*) tdata;
+    struct thread_data2 * RSC_input; //Get Thread Parameters
+    RSC_input =  (struct thread_data2 *)tdata; //Cast To CXorrect pointer Type
+
+    unsigned int cMaxFrames = RSC_input->MaxFrameDuration;
 
     Error error;  
 	CreateOutputFolder(RSC_input->proc_folder);
@@ -431,12 +452,13 @@ void *Rec_onDisk_SingleCamera2(void *tdata,unsigned int cMaxFrames)
         cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
 
         ///Check whether Recording Should Stop by detecting Fish in the scene
-        if (i%300)
-            cv::imshow("Live View",cvm);
+        //if (i%300 == 0)
+//            cv::imshow(ZR_WINDOWNAME,cvm);
 
 
 
         //Crop Image to REgion Of Interest - If Crop flag is set
+        ///\todo Place This in the Camera Settings
 	    if(RSC_input->crop){
 		    tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
 	    } else {
@@ -452,7 +474,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata,unsigned int cMaxFrames)
 
 	    filename<<RSC_input->proc_folder<<"/"<< fixedLengthString(i) <<".pgm";
         if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-	    imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
+        imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
 	    i++;
 
         ///Check Limits
@@ -477,7 +499,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata,unsigned int cMaxFrames)
 
 /// Called after recording is finished - this function shows each recorded image and allows to move through
 /// using keypress-
-void ReadImageSeq(string prefix,char* display, int mode, char* format,char* prefix0){
+void ReadImageSeq(string prefix,string display, int mode, char* format,char* prefix0){
 	int ind=0;
 	cv::Mat image;
 	cv::namedWindow(display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
@@ -490,7 +512,7 @@ void ReadImageSeq(string prefix,char* display, int mode, char* format,char* pref
 		if(c=='b') ind=max(0,ind-1);
 		stringstream filename;
 		if(mode==0){
-			filename<<prefix<<'/'<<fixedLengthString(ind)<<".pgm";
+            filename<<prefix<<'/'<<fixedLengthString(ind)<< ZR_OUTPICFORMAT;
 		} else {
 			filename<<prefix<<'/'<<prefix0<<ind<<format;
 		}
@@ -555,7 +577,7 @@ int Run_SingleCamera(PGRGuid guid)
     cam.StartCapture();
 
     Image rawImage;
-    namedWindow("display",cv::WINDOW_NORMAL);
+    namedWindow(ZR_WINDOWNAME,cv::WINDOW_NORMAL);
     while (cv::waitKey(30)!='q')
     {
         // Retrieve an image
@@ -570,7 +592,7 @@ int Run_SingleCamera(PGRGuid guid)
         unsigned char* data = convertedImage.GetData();
         cv::Mat cvm(convertedImage.GetRows(),convertedImage.GetCols(),CV_8U,(void*)data);
         cv::transpose(cvm,cvm);
-        cv::imshow("display",cvm);
+        cv::imshow(ZR_WINDOWNAME,cvm);
 
     }
 
