@@ -545,10 +545,31 @@ void *ReadImageSeq(void* tdata){
     cv::Mat cvimage;
     cv::Mat frameMask;
     cv::Mat im_with_keypoints;
-    // Set up the detector with default parameters.
-    cv::SimpleBlobDetector detector;
+
+
+
     // Detect blobs.
+
     std::vector<cv::KeyPoint> keypoints;
+
+
+    cv::SimpleBlobDetector::Params params;
+
+    params.filterByCircularity = false;
+    params.filterByColor        =false;
+    params.filterByConvexity    = false;
+    params.filterByInertia      = false;
+
+    // Filter by Area.
+    params.filterByArea = true;
+    params.minArea = 500;
+    params.maxArea = 2000;
+
+    //An inertia ratio of 0 will yield elongated blobs (closer to lines) and an inertia ratio of 1 will yield blobs where the area is more concentrated toward the center (closer to circles).
+    //params.filterByInertia = true;
+
+    // Set up the detector with default parameters.
+    cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
 
     struct thread_data * Reader_input; //Get Thread Parameters
 
@@ -556,7 +577,10 @@ void *ReadImageSeq(void* tdata){
 
 
     ///Draw ROI Mask
-    cv::circle(frameMask,cv::Point(gframeBuffer.cols/2,gframeBuffer.rows/2),gframeBuffer.cols/2,CV_RGB(255,255,255),2,CV_FILLED);
+    frameMask = cv::Mat::zeros(512,640,CV_8UC1);
+    cv::circle(frameMask,cv::Point(640/2,512/2),512/3,CV_RGB(255,255,255),-1,CV_FILLED);
+    //if(frameMask)
+    cv::imshow("mask", frameMask );
 
     cout << "Reading image sequence. Press q to exit." << endl;
     char c='1';
@@ -588,7 +612,7 @@ void *ReadImageSeq(void* tdata){
             cv::imshow(Reader_input->windisplay,gframeBuffer);
 
 
-            detector.detect( gframeBuffer, keypoints); //frameMask
+            detector->detect( gframeBuffer, keypoints,frameMask); //frameMask
             // Draw detected blobs as red circles.
             // DrawMatchesFlags::DRAW_RICH_KEYPOINTS flag ensures the size of the circle corresponds to the size of blob
             cv::drawKeypoints( gframeBuffer, keypoints, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
@@ -617,7 +641,7 @@ void *ReadImageSeq(void* tdata){
     } //Main Loop Wait for control input
 
     sem_wait(&semImgFishDetected); //Decrement Value Of Fish Exists - And So Stop Recording
-
+    detector->clear();
 }
 
 int Run_SingleCamera(PGRGuid guid)
