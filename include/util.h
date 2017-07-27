@@ -15,7 +15,7 @@
 
 #define ZR_OUTPICFORMAT  ".pgm"
 #define ZR_WINDOWNAME     "display"
-
+#define ZR_FISHTIMEOUT    900
 using namespace std;
 using namespace FlyCapture2;
 

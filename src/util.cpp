@@ -338,8 +338,7 @@ void Select_ROI(Camera *cam, ioparam &center, bool &recording){
 ///  Called by Recording Thread To begin Camera Capture
 void *Rec_onDisk_SingleCamera2(void *tdata)
 {
-
-
+    int fishTimeout         = ZR_FISHTIMEOUT;
     unsigned int i          = 0;
     long int ms0            = cv::getTickCount();
     long int ms1            = 0;
@@ -386,6 +385,10 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
     ms1            = cv::getTickCount();
     while(gbrun){
+
+        if (!RSC_input->cam->IsConnected())
+           break;
+
 
 		RSC_input->cam->RetrieveBuffer(&rawImage);
 
@@ -437,11 +440,19 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         sem_getvalue(&semImgFishDetected, &fishFlag);
         //sem_wait(semImgFishDetected); //Wait Until Fish Is detected
         if (fishFlag == 0) //there are no fish currently stop Recording
-           gbrecording = false;
+        { //Enforce A wait Before Stop Recording
+           if (fishTimeout < 1)
+           {
+                gbrecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
+           }
+           else
+               fishTimeout--;
+       }
 
         //Fish Just Appeard - Count Event And Start Recording
         if (fishFlag > 0 && !gbrecording)
         {
+            fishTimeout         = ZR_FISHTIMEOUT; //rESET tIMER
             //Make New    Sub Directory Of Next Recording
             RSC_input->eventCount++;
             outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3);
