@@ -19,7 +19,7 @@
 using namespace std;
 using namespace FlyCapture2;
 
-
+extern cv::Mat gframeBuffer; //Global Image Buffer holding Next Image for Display
 extern sem_t   semImgCapCount;////Semaphore for image Captured Signal
 extern sem_t semImgFishDetected; //There is a fish In the scene lock
 extern pthread_cond_t cond;

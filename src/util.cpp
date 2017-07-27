@@ -8,6 +8,7 @@
 #include <limits.h>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/features2d.hpp>
 
 #include <FlyCapture2.h>
 #include <Utilities.h>
@@ -19,6 +20,8 @@ using namespace FlyCapture2;
 
 bool brun=true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
+
+
 
 std::string fixedLengthString(int value, int digits = 10) {
     unsigned int uvalue = value;
@@ -398,6 +401,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
     unsigned int i          = 0;
     long int ms0            = cv::getTickCount();
+    long int ms1            = 0;
     double dmFps            = 0.0;
 
     signal(SIGINT,my_handler);
@@ -414,7 +418,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
     unsigned char* data;
     
-    int recording=0;
+    int recording   =   0;
     ioparam center;
     ioparam tmp_center;
     
@@ -435,25 +439,25 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     cout<<"RECORDING..."<<endl;
 
 
-
+    ms1            = cv::getTickCount();
     while(recording && brun){
 		RSC_input->cam->RetrieveBuffer(&rawImage);
 
-        long int ms1 = cv::getTickCount();
-	    double delta = (ms1-ms0)/cv::getTickFrequency();
 
-        logfile<<i<<' '<<delta<<' '<<endl;
-        dmFps += delta;
-
-	    data = rawImage.GetData();
-
-
-        //Convert to openCV Matrix - No Need
-        //cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
-
-        ///Check whether Recording Should Stop by detecting Fish in the scene
-        //if (i%300 == 0)
-//            cv::imshow(ZR_WINDOWNAME,cvm);
+        //If Consumer Thread Has Consumed this Image
+        int value;
+        sem_getvalue(&semImgCapCount, &value);
+        if (value == 0) //If Last Image Has been displayed
+        {
+            data = rawImage.GetData();
+            //Convert to openCV Matrix - No Need
+            cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+            //Clone To Global Variable
+            cvm.copyTo(gframeBuffer);
+            sem_post(&semImgCapCount); //Notify / Increment Image Count
+            // Could Use Mem COpy of Data And Pass Pointer to Cv::Mat
+            //gframeBuffer.data;
+        }
 
 
 
@@ -471,9 +475,8 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
 
         rawImage.Save(filename.str().c_str());
-        sem_post(&semImgCapCount); //Notify / Increment Image Count
+
         i++;
-        //imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
 
 
         ///Check Limits
@@ -483,24 +486,51 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         }
 
         //Read in If Recording Needs to End
-        int value;
-        sem_getvalue(&semImgFishDetected, &value); //Read Current Frame
-
-        if (value == 0)
+        int fishFlag;
+        sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
+        //sem_wait(semImgFishDetected); //Wait Until Fish Is detected
+        if (fishFlag == 0)
         {
-           brun= false;
+            //Make New Sub Directory Of Next Recording
+
+            //Update File Name to set to new SubDir
+
+            brun= false;
+
+
+           // Call semwait Wait until Next fish is detected
         }
 
-    }
+
+       //Log File
+        ms0 = ms1;
+        ms1 = cv::getTickCount();
+        double delta = (ms1-ms0)/cv::getTickFrequency();
+        logfile<<i<<' '<<delta<<' '<<endl;
+        dmFps += delta;
+
+
+    } //Main Loop
 
     //Report Mean FPS
     std::cout << "Mean Capture FPS " << dmFps / (i+1);
 
     // Stop capturing images
     error = RSC_input->cam->StopCapture();
-    
+    if (error != PGRERROR_OK)
+    {
+         PrintError(error);
+         return NULL;
+    }
 	// Disconnect the camera
     error = RSC_input->cam->Disconnect();
+
+    if (error != PGRERROR_OK)
+    {
+         PrintError(error);
+         return NULL;
+    }
+
 
     return 0;
 }
@@ -513,42 +543,58 @@ void *ReadImageSeq(void* tdata){
     int nImgDisplayed = 0;
 
     cv::Mat cvimage;
+    cv::Mat frameMask;
+    cv::Mat im_with_keypoints;
+    // Set up the detector with default parameters.
+    cv::SimpleBlobDetector detector;
+    // Detect blobs.
+    std::vector<cv::KeyPoint> keypoints;
+
     struct thread_data * Reader_input; //Get Thread Parameters
 
     Reader_input =  (struct thread_data *)tdata; //Cast To CXorrect pointer Type
 
 
+    ///Draw ROI Mask
+    cv::circle(frameMask,cv::Point(gframeBuffer.cols/2,gframeBuffer.rows/2),gframeBuffer.cols/2,CV_RGB(255,255,255),2,CV_FILLED);
 
     cout << "Reading image sequence. Press q to exit." << endl;
     char c='1';
 	while(c!='q'){
 
-        c=cv::waitKey(20);
-
         sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
         int value;
         sem_getvalue(&semImgCapCount, &value); //Read Current Frame
-        printf("The value of the semaphors is %d\n", value);
+        //printf("The value of the semaphors is %d\n", value);
 
         ind = value+nImgDisplayed; //Semaphore Value Should be number of images Not Display Yet (ie Sem Incrmenets)
 
-        if(c=='f') ind++;
-		if(c=='b') ind=max(0,ind-1);
+        //if(c=='f') ind++;
+        //if(c=='b') ind=max(0,ind-1);
 
-		stringstream filename;
-        if(Reader_input->mode==0){
-            filename<< Reader_input->proc_folder <<'/'<<fixedLengthString(ind)<< ZR_OUTPICFORMAT;
-		} else {
-            filename <<  Reader_input->proc_folder   << '/' << Reader_input->prefix0 << fixedLengthString(ind) << Reader_input->format;
-		}
+        //stringstream filename;
+        //if(Reader_input->mode==0){
+//            filename<< Reader_input->proc_folder <<'/'<<fixedLengthString(ind)<< ZR_OUTPICFORMAT;
+    //	} else {
+      //      filename <<  Reader_input->proc_folder   << '/' << Reader_input->prefix0 << fixedLengthString(ind) << Reader_input->format;
+        //}
 
-        std::cout << filename.str().c_str() << std::endl;
-        cvimage=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
-        if(!cvimage.empty())
+        //std::cout << filename.str().c_str() << std::endl;
+        //cvimage=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
+        if(!gframeBuffer.empty())
         {
             nImgDisplayed++;
             //cv::destroyWindow("display");
-            cv::imshow(Reader_input->windisplay,cvimage);
+            cv::imshow(Reader_input->windisplay,gframeBuffer);
+
+
+            detector.detect( gframeBuffer, keypoints); //frameMask
+            // Draw detected blobs as red circles.
+            // DrawMatchesFlags::DRAW_RICH_KEYPOINTS flag ensures the size of the circle corresponds to the size of blob
+            cv::drawKeypoints( gframeBuffer, keypoints, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+            // Show blobs
+            cv::imshow("keypoints", im_with_keypoints );
+
 
         }
 		else
@@ -557,11 +603,18 @@ void *ReadImageSeq(void* tdata){
         }
 
         ///Process Image - Check If Fish Is in there
-        //Tell Recorded Fish Is Here
+
+        ///Tell Recorded Fish Is Here
+        int fishFlag;
+        sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
+        if (fishFlag ==0)
+        {
+            sem_post(&semImgFishDetected);
+        }
 
 
-
-	}
+        c=cv::waitKey(20);
+    } //Main Loop Wait for control input
 
     sem_wait(&semImgFishDetected); //Decrement Value Of Fish Exists - And So Stop Recording
 

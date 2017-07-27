@@ -20,7 +20,7 @@
 using namespace std;
 using namespace FlyCapture2;
 
-
+cv::Mat gframeBuffer; //Global Image Buffer For display
 sem_t   semImgCapCount;////Semaphore for image Captured Signal
 sem_t   semImgFishDetected;////Semaphore for Fish Detected
 pthread_cond_t cond;
@@ -196,19 +196,20 @@ int main(int argc, char** argv)
 
 
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
-    //pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
+    pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
 
-    char c = 0;
-    while(c!='q'){
-        //What for Quit
-        c=cv::waitKey(100);
-    }
+//    char c = 0;
+//    while(c!='q'){
+//        //What for Quit
+//        c=cv::waitKey(100);
+//    }
 
 
     sem_destroy(&semImgCapCount);
     sem_destroy(&semImgFishDetected);
-    cam.StopCapture();
-    cam.Disconnect();
+
+    //cam.StopCapture();
+    //cam.Disconnect();
 
 
 
