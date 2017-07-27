@@ -25,6 +25,7 @@ extern sem_t semImgFishDetected; //There is a fish In the scene lock
 extern pthread_cond_t cond;
 extern pthread_mutex_t lock;
 extern bool bImgCaptured;/// Global Flag indicating new Image Has been captured by camera
+extern bool gbrecording; //Glag That Images Are being saved
 
 class ioparam {
 	public:
@@ -57,6 +58,7 @@ struct thread_data{
 struct thread_data2{
 	Camera *cam;
     string proc_folder;
+    int eventCount; ///Number of Times Fish Has been cited/ Prey cApture events
     string display;
     size_t seq_size;
     uint MaxFrameDuration;
@@ -67,7 +69,7 @@ struct thread_data2{
 void my_handler(int);
 
 void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, float& pfFrameRate,float& pfShutter);
-
+std::string fixedLengthString(int value, int digits = 10);
 inline void PrintError(Error error) { error.PrintErrorTrace(); }
 void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);

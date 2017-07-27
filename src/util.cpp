@@ -18,12 +18,13 @@
 using namespace std;
 using namespace FlyCapture2;
 
-bool brun=true; //Global Flag CAn Be Altered by Signal Handler
+bool gbrecording   =   false; //Global Variable Indicating Files are saved to disk
+bool gbrun         =true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 
 
-std::string fixedLengthString(int value, int digits = 10) {
+std::string fixedLengthString(int value, int digits) {
     unsigned int uvalue = value;
     if (value < 0) {
         uvalue = -uvalue;
@@ -42,7 +43,7 @@ std::string fixedLengthString(int value, int digits = 10) {
 
 void my_handler(int sig){
        cout<<endl<<"Recording stopped."<<endl;
-       brun=false;
+       gbrun=false;
 }
 
 void on_mouse(int event, int x, int y, int flags, void* p){
@@ -289,7 +290,7 @@ void CreateOutputFolder(string folder){
     }
 }
 
-void Select_ROI(Camera *cam, ioparam &center, int &recording){
+void Select_ROI(Camera *cam, ioparam &center, bool &recording){
 
     Image rawImage;
     cv::Mat tmp_image;
@@ -323,7 +324,7 @@ void Select_ROI(Camera *cam, ioparam &center, int &recording){
 
 	    key=cv::waitKey(10); 
 		if(key=='r'){
-			recording=1;
+            recording=true;
 		    break;
 	    }
     }
@@ -331,66 +332,6 @@ void Select_ROI(Camera *cam, ioparam &center, int &recording){
     cv::destroyWindow(ZR_WINDOWNAME);
 }
 
-int Rec_SingleCamera(void* tdata)
-{
-    Error error;  
- 
-    struct thread_data2 * RSC_input;
-    RSC_input = (struct thread_data2*) tdata;
-    size_t seq_size = RSC_input->seq_size;
-	ioparam center;
-	int recording=0;
-    
-	if(RSC_input->crop){
-		Select_ROI(RSC_input->cam, center, recording);
-		if(!recording){
-			cout<<"Quit."<<endl;
-			exit(0);
-		} 
-	} else recording=1;
-
-    cout<<"RECORDING..."<<endl;
-    
-	vector<cv::Mat> imvec(seq_size);
-	cout<<seq_size<<endl;
-    Image rawImage;
-    unsigned char* data;
-    cv::Mat tmp_image;
-    ofstream logfile("log.txt");
-    
-    if(recording){
-	    long int ms0 = cv::getTickCount();
-	    for(unsigned int i=0;i<imvec.size();i++){
-		    RSC_input->cam->RetrieveBuffer(&rawImage);
-		    long int ms1 = cv::getTickCount(); 
-                    double delta = (ms1-ms0)/cv::getTickFrequency();
-                    logfile<<i<<' '<<delta<<' '<<endl;
-		    data = rawImage.GetData();
-		    cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
-			if(RSC_input->crop)
-				tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
-			else 
-				tmp_image=cvm;
-		    tmp_image.copyTo(imvec[i]);
-	    }                    
-    }
-    // Stop capturing images
-    error = RSC_input->cam->StopCapture();
-
-    // Disconnect the camera
-    error = RSC_input->cam->Disconnect();
-    
-    if(recording){
-	    CreateOutputFolder(RSC_input->proc_folder);
-	    for(unsigned int i=0;i<imvec.size();i++){
-		    stringstream filename;
-		    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";		    
-		    imwrite(filename.str().c_str(),imvec[i]);
-	    }
-    }
-
-    return 0;
-}
 
 /// \brief Rec_onDisk_SingleCamera2 Captures images from Camera And Saves them to disk
 /// Signals Display Function Using Semaphor
@@ -411,14 +352,14 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     unsigned int cMaxFrames = RSC_input->MaxFrameDuration;
 
     Error error;  
-	CreateOutputFolder(RSC_input->proc_folder);
+
 
     Image rawImage;
     cv::Mat tmp_image;
 
     unsigned char* data;
     
-    int recording   =   0;
+
     ioparam center;
     ioparam tmp_center;
     
@@ -426,21 +367,26 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     logfilename	<< RSC_input->proc_folder<<"/logfile.csv";
     ofstream logfile(logfilename.str().c_str());
 
-	if(RSC_input->crop){
-		Select_ROI(RSC_input->cam, center , recording);
-		if(!recording){
-			cout<<"Quit."<<endl;
-			exit(0);
-		} 
-	} else {
-		recording=1;
-	}
+//	if(RSC_input->crop){
+//		Select_ROI(RSC_input->cam, center , brecording);
+//        if(!brecording){
+//            cout<<" Quit. "<<endl;
+//		}
+//	} else {
+//		recording=1;
+//	}
 		
+
+    string outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3) ;
+
+
+
     cout<<"RECORDING..."<<endl;
 
 
     ms1            = cv::getTickCount();
-    while(recording && brun){
+    while(gbrun){
+
 		RSC_input->cam->RetrieveBuffer(&rawImage);
 
 
@@ -469,36 +415,41 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 //		    tmp_image=cvm;
 //	    }
 
-
-	    stringstream filename;
-        filename<< RSC_input->proc_folder << "/" << fixedLengthString(i) <<".pgm";
-        //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-
-        rawImage.Save(filename.str().c_str());
-
-        i++;
+        //Save to Disk If Recording
+        if (gbrecording)
+        {
+            stringstream filename;
+            filename << outfolder << "/"  << fixedLengthString(i) <<".pgm";
+            //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
+            rawImage.Save(filename.str().c_str());
+            i++;
+        }
 
 
         ///Check Limits
         if (UINT_MAX == i || i == cMaxFrames ) //Full
         {   std::cerr << "limit Of rec Period Reached";
-            brun = false;
+            gbrecording = false;
         }
 
         //Read in If Recording Needs to End
         int fishFlag;
-        sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
+        sem_getvalue(&semImgFishDetected, &fishFlag);
         //sem_wait(semImgFishDetected); //Wait Until Fish Is detected
-        if (fishFlag == 0)
+        if (fishFlag == 0) //there are no fish currently stop Recording
+           gbrecording = false;
+
+        //Fish Just Appeard - Count Event And Start Recording
+        if (fishFlag > 0 && !gbrecording)
         {
-            //Make New Sub Directory Of Next Recording
+            //Make New    Sub Directory Of Next Recording
+            RSC_input->eventCount++;
+            outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3);
+            CreateOutputFolder(outfolder);
 
             //Update File Name to set to new SubDir
-
-            brun= false;
-
-
-           // Call semwait Wait until Next fish is detected
+            i=0;//Restart Image Frame Count
+            gbrecording = true;
         }
 
 
@@ -513,7 +464,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     } //Main Loop
 
     //Report Mean FPS
-    std::cout << "Mean Capture FPS " << dmFps / (i+1);
+    std::cout << "Mean Capture FPS " << fixed << 1.0/(dmFps / (i+1));
 
     // Stop capturing images
     error = RSC_input->cam->StopCapture();
@@ -536,8 +487,10 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 }
 
 
+/// \brief Displays Captured Image / Detects Fish Automatically and signals Recording
 /// Called after recording is finished - this function shows each recorded image and allows to move through
 /// using keypress-
+///
 void *ReadImageSeq(void* tdata){
 	int ind=0;
     int nImgDisplayed = 0;
@@ -551,8 +504,6 @@ void *ReadImageSeq(void* tdata){
     // Detect blobs.
 
     std::vector<cv::KeyPoint> keypoints;
-
-
     cv::SimpleBlobDetector::Params params;
 
     params.filterByCircularity = false;
@@ -617,6 +568,10 @@ void *ReadImageSeq(void* tdata){
             // DrawMatchesFlags::DRAW_RICH_KEYPOINTS flag ensures the size of the circle corresponds to the size of blob
             cv::drawKeypoints( gframeBuffer, keypoints, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
             // Show blobs
+            if (gbrecording)
+            {
+                cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,CV_FILLED);
+            }
             cv::imshow("keypoints", im_with_keypoints );
 
 
@@ -628,13 +583,18 @@ void *ReadImageSeq(void* tdata){
 
         ///Process Image - Check If Fish Is in there
 
-        ///Tell Recorded Fish Is Here
+        ///Tell Recorded Fish Is Here if Blob has been Detected
         int fishFlag;
         sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
-        if (fishFlag ==0)
+        if (fishFlag ==0 && keypoints.size() > 0) //Post That Fish Have been Found
         {
+            //Thbis Should Initiate Recording
             sem_post(&semImgFishDetected);
         }
+
+        //The semaphore will be decremented if its value is greater than zero. If the value of the semaphore is zero, then sem_trywait() will return -1 and set errno to EAGAIN
+        if (keypoints.size() == 0) //There are no fish / Decremend Semaphore - But dont Lock
+              sem_trywait(&semImgFishDetected);
 
 
         c=cv::waitKey(20);

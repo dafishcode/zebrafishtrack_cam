@@ -162,7 +162,7 @@ int main(int argc, char** argv)
     RSC_input.display           = string(ZR_WINDOWNAME);
     RSC_input.crop              = iCrop;
     RSC_input.MaxFrameDuration =  fFrameRate*uiduration; //Calc Max Frames given camera FPS
-
+    RSC_input.eventCount        = 0;//Start Zero And IMg Detection will increment this
     //init Semaphore
     sem_init(&semImgCapCount,0,0);
     sem_init(&semImgFishDetected,0,1); //Initially In Run
@@ -183,7 +183,7 @@ int main(int argc, char** argv)
     struct thread_data ReaderFnArgs;
     ReaderFnArgs.mode           = 0; //How to Save File Mode
     ReaderFnArgs.proc_folder    = soutFolder;
-    ReaderFnArgs.prefix0        =  string("");
+    ReaderFnArgs.prefix0        = fixedLengthString(1,3);
     ReaderFnArgs.windisplay     = RSC_input.display;
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
 
