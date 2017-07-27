@@ -69,6 +69,7 @@ struct thread_data2{
 
 void my_handler(int);
 
+void CreateOutputFolder(string folder);
 void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, float& pfFrameRate,float& pfShutter);
 std::string fixedLengthString(int value, int digits = 10);
 inline void PrintError(Error error) { error.PrintErrorTrace(); }

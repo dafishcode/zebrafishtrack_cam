@@ -192,6 +192,9 @@ int main(int argc, char** argv)
     ReaderFnArgs.prefix0        = fixedLengthString(1,3);
     ReaderFnArgs.windisplay     = RSC_input.display;
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
+
+    CreateOutputFolder(soutFolder);
+
     ///\note
     /// cv:imshow functions need to be run from same thread - otherwise opencv hangs
     if (pthread_create(&tidDisplay, NULL, &ReadImageSeq, (void *)&ReaderFnArgs) != 0) {

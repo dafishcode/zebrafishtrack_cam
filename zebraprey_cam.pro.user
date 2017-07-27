@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.5.1, 2017-07-27T17:09:51. -->
+<!-- Written by QtCreator 3.5.1, 2017-07-27T18:40:23. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -241,7 +241,7 @@
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">zebraprey_cam</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">Qt4ProjectManager.Qt4RunConfiguration:/home/meyer-lab/workspace/zebraprey_cam/zebraprey_cam.pro</value>
-    <value type="QString" key="Qt4ProjectManager.Qt4RunConfiguration.CommandLineArguments">../78_MEPSDry_feed 0</value>
+    <value type="QString" key="Qt4ProjectManager.Qt4RunConfiguration.CommandLineArguments">/mnt/SSDFastDisk/camera/expDataKostas/79_MEPSDry_feed 0</value>
     <value type="QString" key="Qt4ProjectManager.Qt4RunConfiguration.ProFile">zebraprey_cam.pro</value>
     <value type="bool" key="Qt4ProjectManager.Qt4RunConfiguration.UseDyldImageSuffix">false</value>
     <value type="bool" key="Qt4ProjectManager.Qt4RunConfiguration.UseTerminal">true</value>

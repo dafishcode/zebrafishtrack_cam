@@ -2,7 +2,8 @@
 #include <sstream>
 #include<fstream>
 #include<signal.h>
-#include<sys/stat.h>
+#include <sys/stat.h> //for Mkdir
+#include <sys/types.h> //Not Necessary for Mkdir
 #include"../include/util.h"
 
 #include <limits.h>
@@ -282,10 +283,12 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
 void CreateOutputFolder(string folder){
     struct stat sb;
     if (stat(folder.c_str(), &sb) != 0){
-        const int dir_err = mkdir(folder.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	    if (-1 == dir_err){
-            std::cerr << "Error creating directory! : " << folder << std::endl;
-		    exit(1);
+        const int dir_err = mkdir(folder.c_str(),0777);
+        if ( dir_err == -1){
+
+            std::cerr <<  dir_err << " Error creating directory! : " << folder << std::endl;
+            //perror(argv[0]);
+            exit(1);
 	    }
     }
 }
@@ -460,6 +463,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
             //Update File Name to set to new SubDir
             i=0;//Restart Image Frame Count
+            dmFps = 0.0;
             gbrecording = true;
         }
 
@@ -475,7 +479,8 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     } //Main Loop
 
     //Report Mean FPS
-    std::cout << "Mean Capture FPS " << fixed << 1.0/(dmFps / (i+1));
+    std::cout << "Mean Rec fps " << fixed << 1.0/(dmFps / (i+1));
+
 
     // Stop capturing images
     error = RSC_input->cam->StopCapture();
@@ -519,17 +524,25 @@ void *ReadImageSeq(void* tdata){
 
     cv::SimpleBlobDetector::Params params;
 
-    params.filterByCircularity = false;
-    params.filterByColor        =false;
+    params.filterByCircularity  = false;
+    params.filterByColor        = false;
     params.filterByConvexity    = false;
-    params.filterByInertia      = false;
+
+    //params.maxThreshold = 16;
+    //params.minThreshold = 8;
+    //params.thresholdStep = 2;
 
     // Filter by Area.
     params.filterByArea = true;
-    params.minArea = 500;
-    params.maxArea = 2000;
+    params.minArea = 100;
+    params.maxArea = 1000;
 
-    //An inertia ratio of 0 will yield elongated blobs (closer to lines) and an inertia ratio of 1 will yield blobs where the area is more concentrated toward the center (closer to circles).
+    /////An inertia ratio of 0 will yield elongated blobs (closer to lines)
+    ///  and an inertia ratio of 1 will yield blobs where the area is more concentrated toward the center (closer to circles).
+    params.filterByInertia      = false;
+    params.maxInertiaRatio      = 0.8;
+
+
     //params.filterByInertia = true;
 
     // Set up the detector with default parameters.
@@ -539,8 +552,8 @@ void *ReadImageSeq(void* tdata){
 
     Reader_input =  (struct thread_data *)tdata; //Cast To CXorrect pointer Type
 
-    //if(!gframeMask.empty())
-//          cv::imshow("mask", gframeMask );
+    if(!gframeMask.empty())
+          cv::imshow("mask", gframeMask );
 
     gframeMask.convertTo(gframeMask,CV_8UC1);
 
@@ -579,17 +592,19 @@ void *ReadImageSeq(void* tdata){
 
             //Mask Is Ignored so Custom Solution Required
             //for (cv::KeyPoint &kp : keypoints)
-            fo
-                    r(int i=0;i<keypoints.size();i++)
+            keypoints_in_mask.clear();
+            for(int i=0;i<keypoints.size();i++)
             {
                 cv::KeyPoint kp = keypoints[i];
-                if (gframeMask.at<char>(kp.pt) > 0)
+                int maskVal=(int)gframeMask.at<uchar>(kp.pt);
+                if (maskVal > 0)
                      keypoints_in_mask.push_back(kp);
             }
 
 
             // Draw detected blobs as red circles.
             // DrawMatchesFlags::DRAW_RICH_KEYPOINTS flag ensures the size of the circle corresponds to the size of blob
+            gframeBuffer.copyTo(gframeBuffer,gframeMask); //mask Source Image
             cv::drawKeypoints( gframeBuffer, keypoints_in_mask, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
             // Show blobs
             if (gbrecording)
@@ -597,7 +612,7 @@ void *ReadImageSeq(void* tdata){
                 cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,CV_FILLED);
             }
             //Show Masked Version
-            im_with_keypoints.copyTo(im_with_keypoints,gframeMask);
+
             cv::imshow("keypoints", im_with_keypoints );
 
 
@@ -610,16 +625,17 @@ void *ReadImageSeq(void* tdata){
         ///Process Image - Check If Fish Is in there
 
         ///Tell Recorded Fish Is Here if Blob has been Detected
+        /// Press r To Force Recording
         int fishFlag;
         sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
-        if (fishFlag ==0 && keypoints.size() > 0) //Post That Fish Have been Found
+        if ((fishFlag ==0 && keypoints_in_mask.size() > 0) || c =='r') //Post That Fish Have been Found
         {
             //Thbis Should Initiate Recording
             sem_post(&semImgFishDetected);
         }
 
         //The semaphore will be decremented if its value is greater than zero. If the value of the semaphore is zero, then sem_trywait() will return -1 and set errno to EAGAIN
-        if (keypoints.size() == 0) //There are no fish / Decremend Semaphore - But dont Lock
+        if (keypoints_in_mask.size() == 0) //There are no fish / Decremend Semaphore - But dont Lock
               sem_trywait(&semImgFishDetected);
 
 
