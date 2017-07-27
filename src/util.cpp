@@ -343,8 +343,8 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 {
     int fishTimeout         = ZR_FISHTIMEOUT;
     unsigned int i          = 0;
-    long int ms0            = cv::getTickCount();
-    long int ms1            = 0;
+    double ms0            = cv::getTickCount();
+    double ms1            = 0;
     double dmFps            = 0.0;
 
     signal(SIGINT,my_handler);
@@ -385,15 +385,19 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
     cout<<"RECORDING..."<<endl;
 
-
-    ms1            = cv::getTickCount();
+    ms0            = cv::getTickCount();
     while(gbrun){
 
         if (!RSC_input->cam->IsConnected())
            break;
 
 
+
 		RSC_input->cam->RetrieveBuffer(&rawImage);
+
+        data = rawImage.GetData();
+        //Convert to openCV Matrix - No Need
+        cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
 
 
         //If Consumer Thread Has Consumed this Image
@@ -401,9 +405,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         sem_getvalue(&semImgCapCount, &value);
         if (value == 0) //If Last Image Has been displayed
         {
-            data = rawImage.GetData();
-            //Convert to openCV Matrix - No Need
-            cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+
             //Clone To Global Variable
             cvm.copyTo(gframeBuffer); //gframeMask
             sem_post(&semImgCapCount); //Notify / Increment Image Count
@@ -427,7 +429,9 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             stringstream filename;
             filename << outfolder << "/"  << fixedLengthString(i) <<".pgm";
             //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-            rawImage.Save(filename.str().c_str());
+
+            //rawImage.Save(filename.str().c_str()); //This is SLOW!!
+            cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
             i++;
         }
 
@@ -469,9 +473,14 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
 
        //Log File
-        ms0 = ms1;
-        ms1 = cv::getTickCount();
+
+
+
+
+        // do something ...
+        ms1 = (double)cv::getTickCount();
         double delta = (ms1-ms0)/cv::getTickFrequency();
+        ms0 = ms1;
         logfile<<i<<' '<<delta<<' '<<endl;
         dmFps += delta;
 
