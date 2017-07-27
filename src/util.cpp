@@ -284,7 +284,7 @@ void CreateOutputFolder(string folder){
     if (stat(folder.c_str(), &sb) != 0){
         const int dir_err = mkdir(folder.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	    if (-1 == dir_err){
-		    printf("Error creating directory!");
+            std::cerr << "Error creating directory! : " << folder << std::endl;
 		    exit(1);
 	    }
     }
@@ -402,7 +402,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             //Convert to openCV Matrix - No Need
             cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
             //Clone To Global Variable
-            cvm.copyTo(gframeBuffer);
+            cvm.copyTo(gframeBuffer); //gframeMask
             sem_post(&semImgCapCount); //Notify / Increment Image Count
             // Could Use Mem COpy of Data And Pass Pointer to Cv::Mat
             //gframeBuffer.data;
@@ -507,14 +507,16 @@ void *ReadImageSeq(void* tdata){
     int nImgDisplayed = 0;
 
     cv::Mat cvimage;
-    cv::Mat frameMask;
     cv::Mat im_with_keypoints;
+
 
 
 
     // Detect blobs.
 
     std::vector<cv::KeyPoint> keypoints;
+    std::vector<cv::KeyPoint> keypoints_in_mask;
+
     cv::SimpleBlobDetector::Params params;
 
     params.filterByCircularity = false;
@@ -537,12 +539,11 @@ void *ReadImageSeq(void* tdata){
 
     Reader_input =  (struct thread_data *)tdata; //Cast To CXorrect pointer Type
 
+    //if(!gframeMask.empty())
+//          cv::imshow("mask", gframeMask );
 
-    ///Draw ROI Mask
-    frameMask = cv::Mat::zeros(512,640,CV_8UC1);
-    cv::circle(frameMask,cv::Point(640/2,512/2),512/3,CV_RGB(255,255,255),-1,CV_FILLED);
-    //if(frameMask)
-    cv::imshow("mask", frameMask );
+    gframeMask.convertTo(gframeMask,CV_8UC1);
+
 
     cout << "Reading image sequence. Press q to exit." << endl;
     char c='1';
@@ -574,15 +575,29 @@ void *ReadImageSeq(void* tdata){
             cv::imshow(Reader_input->windisplay,gframeBuffer);
 
 
-            detector->detect( gframeBuffer, keypoints,frameMask); //frameMask
+            detector->detect( gframeBuffer, keypoints,gframeMask); //frameMask
+
+            //Mask Is Ignored so Custom Solution Required
+            //for (cv::KeyPoint &kp : keypoints)
+            fo
+                    r(int i=0;i<keypoints.size();i++)
+            {
+                cv::KeyPoint kp = keypoints[i];
+                if (gframeMask.at<char>(kp.pt) > 0)
+                     keypoints_in_mask.push_back(kp);
+            }
+
+
             // Draw detected blobs as red circles.
             // DrawMatchesFlags::DRAW_RICH_KEYPOINTS flag ensures the size of the circle corresponds to the size of blob
-            cv::drawKeypoints( gframeBuffer, keypoints, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+            cv::drawKeypoints( gframeBuffer, keypoints_in_mask, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
             // Show blobs
             if (gbrecording)
             {
                 cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,CV_FILLED);
             }
+            //Show Masked Version
+            im_with_keypoints.copyTo(im_with_keypoints,gframeMask);
             cv::imshow("keypoints", im_with_keypoints );
 
 

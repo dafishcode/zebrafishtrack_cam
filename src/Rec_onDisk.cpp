@@ -21,6 +21,7 @@ using namespace std;
 using namespace FlyCapture2;
 
 cv::Mat gframeBuffer; //Global Image Buffer For display
+cv::Mat gframeMask;
 sem_t   semImgCapCount;////Semaphore for image Captured Signal
 sem_t   semImgFishDetected;////Semaphore for Fish Detected
 pthread_cond_t cond;
@@ -167,6 +168,11 @@ int main(int argc, char** argv)
     sem_init(&semImgCapCount,0,0);
     sem_init(&semImgFishDetected,0,1); //Initially In Run
 
+    //Make Mask
+    ///Draw ROI Mask
+    gframeMask = cv::Mat::zeros(512,640,CV_8UC1);
+    cv::circle(gframeMask,cv::Point(640/2,512/2),512/2,CV_RGB(255,255,255),-1,CV_FILLED);
+
 
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);
     //Start The Recording Thread
@@ -186,7 +192,8 @@ int main(int argc, char** argv)
     ReaderFnArgs.prefix0        = fixedLengthString(1,3);
     ReaderFnArgs.windisplay     = RSC_input.display;
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
-
+    ///\note
+    /// cv:imshow functions need to be run from same thread - otherwise opencv hangs
     if (pthread_create(&tidDisplay, NULL, &ReadImageSeq, (void *)&ReaderFnArgs) != 0) {
         printf("Oh Ohh... Thread for Camera Display ReadImageSeq could not start :( \n");
         cam.StopCapture();
