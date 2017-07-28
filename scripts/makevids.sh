@@ -3,7 +3,7 @@ echo "Make HD Vids from Image Sequence Dirs.."
 for dir in `find $1 -type d`
 do
   #test -d "$dir" || continue
-	files=($dir/*.cpp)
+	files=($dir/*.pgm)
 	if [ ${#files[@]} -gt 0 ]; then
 #	 echo $dir;
 	 echo "Found PGM Image FILES..in $dir";
@@ -11,7 +11,7 @@ do
 	  filename=${dir//[\/]/_}
 	  filename=${filename//[.]/}
 	  echo $filename
-#	   avconv -r 300 -i $dir/%10d.pgm -c:v libx264 -crf 15 -crf_max 45 ../
+	   avconv -r 300 -i $dir/%10d.pgm -c:v libx264 -crf 17 -crf_max 45 ../$filename
 	fi
 	
 	
