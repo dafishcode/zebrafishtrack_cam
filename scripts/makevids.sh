@@ -13,16 +13,7 @@ do
 	  echo $filename
 	   avconv -r 300 -i $dir/%10d.pgm -c:v libx264 -crf 17 -crf_max 45 ../$filename
 	fi
-	
-	
 
-#	if [ -e "$(test -f $dir/*.cpp)" ];
-#	then 
-#		echo "Found Files";
-#	else
-#	  echo "empty (or does not exist)"
-#	fi
-#	
 
 # Do something with $dir...
 done
