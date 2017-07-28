@@ -171,7 +171,7 @@ int main(int argc, char** argv)
     //Make Mask
     ///Draw ROI Mask
     gframeMask = cv::Mat::zeros(512,640,CV_8UC1);
-    cv::circle(gframeMask,cv::Point(640/2,512/2),512/2,CV_RGB(255,255,255),-1,CV_FILLED);
+    cv::circle(gframeMask,cv::Point(640/2,512/2),512/2+20,CV_RGB(255,255,255),-1,CV_FILLED);
 
 
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);

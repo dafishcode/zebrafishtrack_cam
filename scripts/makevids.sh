@@ -11,7 +11,7 @@ do
 	  filename=${dir//[\/]/_}
 	  filename=${filename//[.]/}
 	  echo $filename
-	   avconv -r 300 -i $dir/%10d.pgm -c:v libx264 -crf 17 -crf_max 45 ../$filename
+	   avconv -framerate 300 -i $dir/%10d.pgm -c:v libx264 -crf 17 -crf_max 45 $dir/../$filename.mp4
 	fi
 	
 	

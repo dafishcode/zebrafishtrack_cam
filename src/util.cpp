@@ -433,6 +433,13 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             //rawImage.Save(filename.str().c_str()); //This is SLOW!!
             cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
             i++;
+
+            // do something ...
+            ms1 = (double)cv::getTickCount();
+            double delta = (ms1-ms0)/cv::getTickFrequency();
+            ms0 = ms1;
+            logfile<<i<<' '<<delta<<' '<<endl;
+            dmFps += delta;
         }
 
 
@@ -477,12 +484,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
 
 
-        // do something ...
-        ms1 = (double)cv::getTickCount();
-        double delta = (ms1-ms0)/cv::getTickFrequency();
-        ms0 = ms1;
-        logfile<<i<<' '<<delta<<' '<<endl;
-        dmFps += delta;
+
 
 
     } //Main Loop
@@ -507,6 +509,8 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
          return NULL;
     }
 
+    ///Leave App
+    exit(0);
 
     return 0;
 }
@@ -594,7 +598,7 @@ void *ReadImageSeq(void* tdata){
         {
             nImgDisplayed++;
             //cv::destroyWindow("display");
-            cv::imshow(Reader_input->windisplay,gframeBuffer);
+            //cv::imshow(Reader_input->windisplay,gframeBuffer);
 
 
             detector->detect( gframeBuffer, keypoints,gframeMask); //frameMask
