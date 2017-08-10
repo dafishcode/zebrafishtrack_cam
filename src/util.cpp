@@ -489,6 +489,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
             i=0;//Restart Image Frame Count
             dmFps = 0.0;
+            ms0            = cv::getTickCount(); //Reset Timer 0 Start tm
             gbrecording = true;
         }
 
