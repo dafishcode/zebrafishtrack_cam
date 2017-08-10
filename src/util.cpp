@@ -5,6 +5,7 @@
 #include <sys/stat.h> //for Mkdir
 #include <sys/types.h> //Not Necessary for Mkdir
 #include"../include/util.h"
+#include <time.h>
 
 #include <limits.h>
 #include <opencv2/imgproc.hpp>
@@ -258,6 +259,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
    error = cam->GetProperty(&frmRate);
    if (error != PGRERROR_OK)
    {
+       std::cerr << " Camera Frame rate   " <<  std::endl;
        PrintError(error);
        return ;
    }
@@ -273,6 +275,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
      error = cam->GetProperty(&propShutter);
      if (error != PGRERROR_OK)
      {
+         std::cerr << " Camera Shutter  " <<  std::endl;
          PrintError(error);
          return ;
      }
@@ -341,6 +344,9 @@ void Select_ROI(Camera *cam, ioparam &center, bool &recording){
 ///  Called by Recording Thread To begin Camera Capture
 void *Rec_onDisk_SingleCamera2(void *tdata)
 {
+    char buff[20]; //For Time Stamp
+    struct tm *sTm;
+
     int fishTimeout         = ZR_FISHTIMEOUT;
     unsigned int i          = 0;
     double ms0            = cv::getTickCount();
@@ -426,6 +432,11 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         //Save to Disk If Recording
         if (gbrecording)
         {
+            time_t now = time (0);
+            sTm = gmtime (&now);
+            strftime (buff, sizeof(buff), "%H:%M:%S", sTm);
+
+
             stringstream filename;
             filename << outfolder << "/"  << fixedLengthString(i) <<".pgm";
             //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
@@ -438,7 +449,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             ms1 = (double)cv::getTickCount();
             double delta = (ms1-ms0)/cv::getTickFrequency();
             ms0 = ms1;
-            logfile<<i<<' '<<delta<<' '<<endl;
+            logfile << RSC_input->eventCount <<'\t'<< i <<'\t'<<delta<<'\t' << buff << std:: endl;
             dmFps += delta;
         }
 
@@ -458,12 +469,13 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
            if (fishTimeout < 1)
            {
                 gbrecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
+                std::cout << "Even Mean Rec fps " << fixed << 1.0/(dmFps / (i+1));
            }
            else
                fishTimeout--;
        }
 
-        //Fish Just Appeard - Count Event And Start Recording
+        //Fish Just Appeared - Count Event And Start Recording
         if (fishFlag > 0 && !gbrecording)
         {
             fishTimeout         = ZR_FISHTIMEOUT; //rESET tIMER
@@ -473,10 +485,12 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             CreateOutputFolder(outfolder);
 
             //Update File Name to set to new SubDir
+
             i=0;//Restart Image Frame Count
             dmFps = 0.0;
             gbrecording = true;
         }
+
 
 
        //Log File
