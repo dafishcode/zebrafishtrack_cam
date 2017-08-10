@@ -458,18 +458,19 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         if (UINT_MAX == i || i == cMaxFrames ) //Full
         {   std::cerr << "limit Of rec Period Reached";
             gbrecording = false;
+            std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (i+1)) << std::endl;
         }
 
         //Read in If Recording Needs to End
         int fishFlag;
         sem_getvalue(&semImgFishDetected, &fishFlag);
         //sem_wait(semImgFishDetected); //Wait Until Fish Is detected
-        if (fishFlag == 0) //there are no fish currently stop Recording
+        if (fishFlag == 0 && gbrecording) //there are no fish currently stop Recording
         { //Enforce A wait Before Stop Recording
            if (fishTimeout < 1)
            {
                 gbrecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
-                std::cout << "Even Mean Rec fps " << fixed << 1.0/(dmFps / (i+1));
+                std::cout << "Event "<< RSC_input->eventCount << " Mean Rec fps " << fixed << 1.0/(dmFps / (i+1))<< std::endl;
            }
            else
                fishTimeout--;
