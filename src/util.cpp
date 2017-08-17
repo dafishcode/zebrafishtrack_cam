@@ -581,8 +581,8 @@ void *ReadImageSeq(void* tdata){
 
     Reader_input =  (struct thread_data *)tdata; //Cast To CXorrect pointer Type
 
-    if(!gframeMask.empty())
-          cv::imshow("mask", gframeMask );
+    //if(!gframeMask.empty())
+    //      cv::imshow("mask", gframeMask );
 
     gframeMask.convertTo(gframeMask,CV_8UC1);
 
@@ -641,6 +641,8 @@ void *ReadImageSeq(void* tdata){
                 cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,CV_FILLED);
             }
             //Show Masked Version
+
+            cv::circle(im_with_keypoints,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2+20,CV_RGB(0,205,15),1,cv::LINE_8);
 
             cv::imshow("keypoints", im_with_keypoints );
 
