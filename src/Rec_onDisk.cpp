@@ -50,7 +50,7 @@ int main(int argc, char** argv)
         "{cammode m      |1     | Mode 1 is low Res high FPS}"
         "{fps            | 300.0| Camera capture fps and output video fps}"
         "{shutter        | 3.0  | Camera shutter speed - set to 3ms }"
-        "{duration t     |120   | Max recording time in seconds     }"
+        "{duration t     |240   | Max recording time in seconds     }"
         "{ts timestamp   |false | use time stamp       }"
         "{e event        |false | Record only when fish is visible (Event Capture))  }"
         ;

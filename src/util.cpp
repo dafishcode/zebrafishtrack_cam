@@ -455,7 +455,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
 
         ///Check Limits
-        if (UINT_MAX == i || i == cMaxFrames ) //Full
+        if ((UINT_MAX == i || i == cMaxFrames) && gbrecording ) //Full
         {   std::cerr << "limit Of rec Period Reached";
             gbrecording = false;
             std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (i+1)) << std::endl;
