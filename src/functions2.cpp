@@ -7,15 +7,32 @@
 #include<fstream>
 #include<signal.h>
 #include<sys/stat.h>
-#include"../include/functions.h"
+#include"../include/functions2.h"
 
 using namespace std;
 using namespace FlyCapture2;
 
 bool run=true;
 
+std::string fixedLengthString(int value, int digits = 10) {
+    unsigned int uvalue = value;
+    if (value < 0) {
+        uvalue = -uvalue;
+    }
+    std::string result;
+    while (digits-- > 0) {
+        result += ('0' + uvalue % 10);
+        uvalue /= 10;
+    }
+    if (value < 0) {
+        result += '-';
+    }
+    std::reverse(result.begin(), result.end());
+    return result;
+}
+
 void my_handler(int sig){
-           cout<<endl<<"Recording stopped."<<endl;
+       cout<<endl<<"Recording stopped."<<endl;
 	   run=false;
 }
 
@@ -78,137 +95,147 @@ void PrintCameraInfo(CameraInfo *pCamInfo)
          << endl;
 }
 
-int Rec_SingleCamera(void* tdata)
-{
-    Error error;  
- 
-    struct thread_data * RSC_input;
-    RSC_input = (struct thread_data*) tdata;
-    size_t seq_size = RSC_input->seq_size;
+void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt){
 
+    Error error;  
+
+    CameraInfo cInfo;
+    cam->GetCameraInfo(&cInfo);
+    PrintCameraInfo(&cInfo);
+
+    error = cam->GetConfiguration(&(f7.config));
+
+    // Set the number of driver buffers used to 10.
+    f7.config.numBuffers = 10;
+
+    // Set the camera configuration
+    cam->SetConfiguration(&(f7.config));
+
+    f7.fmt7Info.mode=k_fmt7Mode;
+    cam->GetFormat7Info(&(f7.fmt7Info), &(f7.supported));
+	PrintFormat7Capabilities(f7.fmt7Info);
+    f7.fmt7ImageSettings.mode = k_fmt7Mode;
+    f7.fmt7ImageSettings.offsetX = 0;
+    f7.fmt7ImageSettings.offsetY = 0;
+    f7.fmt7ImageSettings.width = f7.fmt7Info.maxWidth;
+    f7.fmt7ImageSettings.height = f7.fmt7Info.maxHeight;
+    f7.fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
+
+    cam->ValidateFormat7Settings(&(f7.fmt7ImageSettings), &(f7.valid), &(f7.fmt7PacketInfo));
+    cam->SetFormat7Configuration(&(f7.fmt7ImageSettings), f7.fmt7PacketInfo.recommendedBytesPerPacket);   
+
+    
+	// Start capturing images
+    cam->StartCapture();
+}
+
+void CreateOutputFolder(char* folder){
     struct stat sb;
-    if (stat(RSC_input->proc_folder, &sb) != 0){
-	    const int dir_err = mkdir(RSC_input->proc_folder, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    if (stat(folder, &sb) != 0){
+	    const int dir_err = mkdir(folder, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	    if (-1 == dir_err){
 		    printf("Error creating directory!");
 		    exit(1);
 	    }
     }
+}
 
-    // Connect to a camera
-    Camera cam;
-    cam.Connect(RSC_input->guid);
-
-    // Get the camera configuration
-    FC2Config config;
-    error = cam.GetConfiguration(&config);
-
-    // Set the number of driver buffers used to 10.
-    config.numBuffers = 10;
-
-    // Set the camera configuration
-    cam.SetConfiguration(&config);
-
-    // Set the custom image format7 
-    const Mode k_fmt7Mode = MODE_1;
-    const PixelFormat k_fmt7PixFmt = PIXEL_FORMAT_RAW8;
-
-    Format7Info fmt7Info;
-    bool supported;
-    fmt7Info.mode=k_fmt7Mode;
-    cam.GetFormat7Info(&fmt7Info, &supported);
-    Format7ImageSettings fmt7ImageSettings;
-    fmt7ImageSettings.mode = k_fmt7Mode;
-    fmt7ImageSettings.offsetX = 0;
-    fmt7ImageSettings.offsetY = 0;
-    fmt7ImageSettings.width = fmt7Info.maxWidth;
-    fmt7ImageSettings.height = fmt7Info.maxHeight;
-    fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
-    bool valid;
-    Format7PacketInfo fmt7PacketInfo;
-
-    cam.ValidateFormat7Settings(&fmt7ImageSettings, &valid, &fmt7PacketInfo);
-    cam.SetFormat7Configuration(&fmt7ImageSettings, fmt7PacketInfo.recommendedBytesPerPacket);   
-
-    CameraInfo cInfo;
-    cam.GetCameraInfo(&cInfo);
-    PrintCameraInfo(&cInfo);
-
-    // Start capturing images
-    cam.StartCapture();
+void Select_ROI(Camera *cam, ioparam &center, int &recording){
 
     Image rawImage;
     cv::Mat tmp_image;
-    vector<cv::Mat> imvec(seq_size);
     cv::namedWindow("display",cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
     cv::resizeWindow("display", 800,800);
-    
 
     // Retrieve a single image
-    cam.RetrieveBuffer(&rawImage);
+    cam->RetrieveBuffer(&rawImage);
 
     unsigned char* data = rawImage.GetData();
     cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
     
     char key='a';
-    bool recording=false;
-    ioparam center;
     ioparam tmp_center;
     tmp_center.status=0;
     cv::setMouseCallback("display",on_mouse,&tmp_center);
     string yn;
     cv::Mat drawing;
     cvm.copyTo(drawing);
-    ofstream logfile("log.txt");
     
     while(key!='q'){
-            if(tmp_center.status){
-                    cvm.copyTo(drawing);
-		    cv::rectangle(drawing,tmp_center.pt1,tmp_center.pt2,0,4,8,0);
-                    ostringstream info; 
-		    
-                    info<<"center = ("<<tmp_center.center.x<<','<<tmp_center.center.y<<")";
-	            cv::imshow("display",drawing);
-	            cv::displayStatusBar("display",info.str(),0);
-				center=tmp_center;
-            } else cv::imshow("display",drawing);
+		if(tmp_center.status){
+			cvm.copyTo(drawing);
+			cv::rectangle(drawing,tmp_center.pt1,tmp_center.pt2,0,4,8,0);
+			ostringstream info;
+			info<<"center = ("<<tmp_center.center.x<<','<<tmp_center.center.y<<")";
+			cv::imshow("display",drawing);
+			cv::displayStatusBar("display",info.str(),0);
+			center=tmp_center;
+		} else cv::imshow("display",drawing);
 
 	    key=cv::waitKey(10); 
-                    
-            if(key=='r'){
-		    cout<<"RECORDING..."<<endl;
-		    recording=true;
+		if(key=='r'){
+			recording=1;
 		    break;
 	    }
     }
 
     cv::destroyWindow("display");
+}
 
+int Rec_SingleCamera(void* tdata)
+{
+    Error error;  
+ 
+    struct thread_data2 * RSC_input;
+    RSC_input = (struct thread_data2*) tdata;
+    size_t seq_size = RSC_input->seq_size;
+	ioparam center;
+	int recording=0;
+    
+	if(RSC_input->crop){
+		Select_ROI(RSC_input->cam, center, recording);
+		if(!recording){
+			cout<<"Quit."<<endl;
+			exit(0);
+		} 
+	} else recording=1;
+
+    cout<<"RECORDING..."<<endl;
+    
+	vector<cv::Mat> imvec(seq_size);
+	cout<<seq_size<<endl;
+    Image rawImage;
+    unsigned char* data;
+    cv::Mat tmp_image;
+    ofstream logfile("log.txt");
+    
     if(recording){
 	    long int ms0 = cv::getTickCount();
 	    for(unsigned int i=0;i<imvec.size();i++){
-		    cam.RetrieveBuffer(&rawImage);
+		    RSC_input->cam->RetrieveBuffer(&rawImage);
 		    long int ms1 = cv::getTickCount(); 
                     double delta = (ms1-ms0)/cv::getTickFrequency();
                     logfile<<i<<' '<<delta<<' '<<endl;
 		    data = rawImage.GetData();
 		    cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
-		    tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
+			if(RSC_input->crop)
+				tmp_image=cvm(cv::Range(center.pt1.y,center.pt2.y),cv::Range(center.pt1.x,center.pt2.x));
+			else 
+				tmp_image=cvm;
 		    tmp_image.copyTo(imvec[i]);
 	    }                    
     }
-
     // Stop capturing images
-    error = cam.StopCapture();
+    error = RSC_input->cam->StopCapture();
 
     // Disconnect the camera
-    error = cam.Disconnect();
+    error = RSC_input->cam->Disconnect();
     
     if(recording){
+	    CreateOutputFolder(RSC_input->proc_folder);
 	    for(unsigned int i=0;i<imvec.size();i++){
 		    stringstream filename;
-		    filename<<"test/test-"<<i<<".tiff";
-		    
+		    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";		    
 		    imwrite(filename.str().c_str(),imvec[i]);
 	    }
     }
@@ -216,117 +243,46 @@ int Rec_SingleCamera(void* tdata)
     return 0;
 }
 
-void *Rec_onDisk_SingleCamera(void *tdata)
+
+void *Rec_onDisk_SingleCamera2(void *tdata)
 {
     signal(SIGINT,my_handler);
-    struct thread_data * RSC_input;
-    RSC_input = (struct thread_data*) tdata;
+    struct thread_data2 * RSC_input;
+    RSC_input = (struct thread_data2*) tdata;
 
-    struct stat sb;
-    if (stat(RSC_input->proc_folder, &sb) != 0){
-	    const int dir_err = mkdir(RSC_input->proc_folder, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	    if (-1 == dir_err){
-		    printf("Error creating directory!");
-		    exit(1);
-	    }
-    }
-
-    Error error;   
-
-    // Connect to a camera
-    Camera cam;
-    cam.Connect(RSC_input->guid);
-
-    // Get the camera configuration
-    FC2Config config;
-    error = cam.GetConfiguration(&config);
-
-    // Set the number of driver buffers used to 10.
-    config.numBuffers = 10;
-
-    // Set the camera configuration
-    cam.SetConfiguration(&config);
-
-    // Set the custom image format7 
-    const Mode k_fmt7Mode = MODE_1;
-    const PixelFormat k_fmt7PixFmt = PIXEL_FORMAT_RAW8;
-
-    Format7Info fmt7Info;
-    bool supported;
-    fmt7Info.mode=k_fmt7Mode;
-    cam.GetFormat7Info(&fmt7Info, &supported);
-    Format7ImageSettings fmt7ImageSettings;
-    fmt7ImageSettings.mode = k_fmt7Mode;
-    fmt7ImageSettings.offsetX = 0;
-    fmt7ImageSettings.offsetY = 0;
-    fmt7ImageSettings.width = fmt7Info.maxWidth;
-    fmt7ImageSettings.height = fmt7Info.maxHeight;
-    fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
-    bool valid;
-    Format7PacketInfo fmt7PacketInfo;
-
-    cam.ValidateFormat7Settings(&fmt7ImageSettings, &valid, &fmt7PacketInfo);
-    cam.SetFormat7Configuration(&fmt7ImageSettings, fmt7PacketInfo.recommendedBytesPerPacket);   
-
-    CameraInfo cInfo;
-    cam.GetCameraInfo(&cInfo);
-    PrintCameraInfo(&cInfo);
-
-    // Start capturing images
-    cam.StartCapture();
+    Error error;  
+	CreateOutputFolder(RSC_input->proc_folder);
 
     Image rawImage;
     cv::Mat tmp_image;
-    
 
-    // Retrieve a single image
-    cam.RetrieveBuffer(&rawImage);
-
-    unsigned char* data = rawImage.GetData();
-    cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+    unsigned char* data;
     
-    char key='a';
-    bool recording=false;
+    int recording=0;
     ioparam center;
     ioparam tmp_center;
-    tmp_center.status=0;
-    cv::setMouseCallback(RSC_input->display,on_mouse,&tmp_center);
-    string yn;
-    cv::Mat drawing;
-    cvm.copyTo(drawing);
-    ofstream logfile("log.txt");
-    char input;
     
-    while(key!='q'){
-		if(tmp_center.status && RSC_input->crop){
-			cvm.copyTo(drawing);
-			cv::rectangle(drawing,tmp_center.pt1,tmp_center.pt2,0,4,8,0);
-			ostringstream info; 
-			
-			info<<"center = ("<<tmp_center.center.x<<','<<tmp_center.center.y<<")";
-			cv::imshow(RSC_input->display,drawing);
-			
-			//center.status=false;
-			cv::displayStatusBar(RSC_input->display,info.str(),0);
-			center=tmp_center;
-		} else cv::imshow(RSC_input->display,drawing);
-		
-		key=cv::waitKey(10); 
-		
-		if(key=='r'){
-			cout<<"RECORDING..."<<endl;
-			recording=true;
-			break;
-		}
+    stringstream logfilename;
+    logfilename	<< RSC_input->proc_folder<<"/logfile.csv";
+    ofstream logfile(logfilename.str().c_str());
+
+	if(RSC_input->crop){
+		Select_ROI(RSC_input->cam, center , recording);
+		if(!recording){
+			cout<<"Quit."<<endl;
+			exit(0);
+		} 
+	} else {
+		recording=1;
 	}
-	
-	cv::destroyWindow(RSC_input->display);
-    
+		
+    cout<<"RECORDING..."<<endl;
+
     unsigned int i=0;
     long int ms0 = cv::getTickCount();
 
     while(recording && run){
-		cam.RetrieveBuffer(&rawImage);
+		RSC_input->cam->RetrieveBuffer(&rawImage);
 	    long int ms1 = cv::getTickCount(); 
 	    double delta = (ms1-ms0)/cv::getTickFrequency();
 	    logfile<<i<<' '<<delta<<' '<<endl;
@@ -337,35 +293,50 @@ void *Rec_onDisk_SingleCamera(void *tdata)
 	    } else {
 		    tmp_image=cvm;
 	    }
+
 	    stringstream filename;
 	    filename<<RSC_input->proc_folder<<"/"<<i<<".tiff";
+        if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
 	    imwrite(filename.str().c_str(),tmp_image);
-	    i++; 
-    }                    
 
+	    filename<<RSC_input->proc_folder<<"/"<< fixedLengthString(i) <<".pgm";
+        if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
+	    imwrite(filename.str().c_str(),tmp_image); //CV_IMWRITE_PXM_BINARY
+	    i++;
+    } 
 
-    // Disconnect the camera
-    error = cam.Disconnect();
+    // Stop capturing images
+    error = RSC_input->cam->StopCapture();
+    
+	// Disconnect the camera
+    error = RSC_input->cam->Disconnect();
 
     return 0;
 }
 
-void ReadImageSeq(string prefix,char* display){
+void ReadImageSeq(string prefix,char* display, int mode, char* format,char* prefix0){
 	int ind=0;
 	cv::Mat image;
 	cv::namedWindow(display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO );
-        cv::resizeWindow(display, 800,800);
+    cv::resizeWindow(display, 800,800);
 
-        char c='1';
+    cout << "Reading image sequence. Press q to exit." << endl;
+    char c='1';
 	while(c!='q'){
 		if(c=='f') ind++;
 		if(c=='b') ind=max(0,ind-1);
 		stringstream filename;
-		filename<<prefix<<'/'<<ind<<".tiff";
+		if(mode==0){
+			filename<<prefix<<'/'<<fixedLengthString(ind)<<".pgm";
+		} else {
+			filename<<prefix<<'/'<<prefix0<<ind<<format;
+		}
 		image=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
 		if(!image.empty())
 			imshow(display,image);
-                c=cv::waitKey(10);
+		else
+		  break;
+		c=cv::waitKey(10);
 	}
 }
 
@@ -393,7 +364,7 @@ int Run_SingleCamera(PGRGuid guid)
     PrintCameraInfo(&cInfo);
 
     // Set format7 custom mode
-    const Mode k_fmt7Mode = MODE_0;
+    const Mode k_fmt7Mode = MODE_1;
     const PixelFormat k_fmt7PixFmt = PIXEL_FORMAT_RAW8;
 
     Format7Info fmt7Info;
