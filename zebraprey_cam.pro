@@ -4,12 +4,14 @@
 #TARGET = zebraprey_cam
 
 HEADERS = \
-   $$PWD/include/util.h
+   $$PWD/include/util.h \
+    src/arduino-serial-lib.h
 
 
 SOURCES = \
    $$PWD/src/util.cpp \
-   $$PWD/src/Rec_onDisk.cpp
+   $$PWD/src/Rec_onDisk.cpp \
+    src/arduino-serial-lib.c
 
 
 
