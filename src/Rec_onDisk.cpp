@@ -48,7 +48,7 @@ int main(int argc, char** argv)
         "{@outputDir     |<none>| Dir where To save sequence of images }"
         "{@crop          | 0    | ROI to crop images before save       }"
         "{cammode m      |1     | Mode 1 is low Res high FPS}"
-        "{fps            | 300.0| Camera capture fps and output video fps}"
+        "{fps            | 350.0| Camera capture fps and output video fps}"
         "{shutter        | 3.0  | Camera shutter speed - set to 3ms }"
         "{duration t     |240   | Max recording time in seconds     }"
         "{ts timestamp   |false | use time stamp       }"
