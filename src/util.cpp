@@ -208,7 +208,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
          prop.autoManualMode = false;
          prop.onOff = true;
          prop.absControl = true;
-         prop.absValue = 300;
+         prop.absValue = pfFrameRate;
          error = cam->SetProperty(&prop);
          if (error != PGRERROR_OK)
          {

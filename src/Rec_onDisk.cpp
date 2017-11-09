@@ -62,7 +62,7 @@ int main(int argc, char** argv)
     ssMsg<<"Zebrafish Experiments Recording for the Cameleon 3 FLIR camera."<<endl;
     ssMsg<<"--------------------------"<<endl;
     ssMsg<<"Author : Kontantinos Lagogiannis 2017"<<endl;
-    ssMsg<<"./Rec_onDisk <MODE=1> <outfolder> <crop=0> <fps=300> <duration=120sec> <timestamp=false>"<<endl;
+    ssMsg<<"./Rec_onDisk <MODE=1> <outfolder> <crop=0> <fps=350> <duration=120sec> <timestamp=false>"<<endl;
     ssMsg<<"(note: folder is automatically generated when absent)"<<endl;
 
     parser.about(ssMsg.str() );
