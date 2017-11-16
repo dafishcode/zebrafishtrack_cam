@@ -220,7 +220,7 @@ int main(int argc, char** argv)
 //        t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 //        //What for Quit
 
-//        c=cv::waitKey(1);
+//        c=cv::waitKey(1000);
 //    }
 
 

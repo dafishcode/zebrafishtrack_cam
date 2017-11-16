@@ -6,7 +6,8 @@
 #include <sys/types.h> //Not Necessary for Mkdir
 #include"../include/util.h"
 #include <time.h>
-
+#include <pthread.h>
+#include <unistd.h>
 #include <limits.h>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
@@ -514,6 +515,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     if (error != PGRERROR_OK)
     {
          PrintError(error);
+         pthread_exit(0);
          return NULL;
     }
 	// Disconnect the camera
@@ -522,10 +524,13 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     if (error != PGRERROR_OK)
     {
          PrintError(error);
+         pthread_exit(0);
          return NULL;
     }
 
     ///Leave App
+    pthread_exit(EXIT_SUCCESS);
+
     exit(0);
 
     return 0;
@@ -592,8 +597,8 @@ void *ReadImageSeq(void* tdata){
     double tstart = (double)cv::getTickCount();
     double t = 0;
 
-    while(c!='q' && (t < Reader_input->timeout || gbrecording)){
-
+    while(c!='q' && (t < Reader_input->timeout+1 || gbrecording)){
+        c=cv::waitKey(20);
         t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 
         sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
@@ -645,6 +650,12 @@ void *ReadImageSeq(void* tdata){
             {
                 cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,CV_FILLED);
             }
+
+            if (t >= Reader_input->timeout)
+            {
+                cv::putText(im_with_keypoints,"Time-Out reached",cv::Point(20,20),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(255,0,0));
+
+            }
             //Show Masked Version
 
             cv::circle(im_with_keypoints,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2+20,CV_RGB(0,205,15),1,cv::LINE_8);
@@ -675,7 +686,9 @@ void *ReadImageSeq(void* tdata){
               sem_trywait(&semImgFishDetected);
 
 
-        c=cv::waitKey(20);
+
+
+
     } //Main Loop Wait for control input
 
     sem_wait(&semImgFishDetected); //Decrement Value Of Fish Exists - And So Stop Recording
@@ -684,16 +697,17 @@ void *ReadImageSeq(void* tdata){
 
     if (t >= Reader_input->timeout)
     {
-        cv::putText(im_with_keypoints,"Time-Out reached",cv::Point(20,20),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(255,0,0));
+        std::cout << "Maximum Recording Duration reached :"<< Reader_input->timeout << " sec" << std::endl;
         cv::imshow("Fish Camera View", im_with_keypoints );
-        std::clog << "Maximum Recording Duration reached :"<< Reader_input->timeout << " sec" << std::endl;
-        cv::waitKey(1000);
-    }
+        //std::flush;
+        cv::waitKeyEx(200);
+        usleep(5000);
+   }
 
 
 
     pthread_exit(EXIT_SUCCESS);
-    //std::exit();
+    std::exit(EXIT_SUCCESS);
     return 0;
 
 }
