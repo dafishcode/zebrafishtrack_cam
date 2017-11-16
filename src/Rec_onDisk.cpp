@@ -50,7 +50,8 @@ int main(int argc, char** argv)
         "{cammode m      |1     | Mode 1 is low Res high FPS}"
         "{fps            | 350.0| Camera capture fps and output video fps}"
         "{shutter        | 3.0  | Camera shutter speed - set to 3ms }"
-        "{duration t     |240   | Max recording time in seconds     }"
+        "{eventtimeout e |240   | Max event recording duration, new event is created after timeout }"
+        "{timeout t      |600   | Max recording time in seconds, stops the recording process (= 10 mins)  }"
         "{ts timestamp   |false | use time stamp       }"
         "{e event        |false | Record only when fish is visible (Event Capture))  }"
         ;
@@ -80,10 +81,10 @@ int main(int argc, char** argv)
     float fFrameRate    = parser.get<float>("fps");
     int iCrop           = parser.get<int>("@crop");
     float fshutter      = parser.get<float>("shutter");
-    uint uiduration     = parser.get<uint>("duration");
+    uint uiduration     = parser.get<uint>("eventtimeout");
     string soutFolder   = parser.get<string>("@outputDir");
     bool use_time_stamp = parser.has("timestamp");
-
+    uint uiTimeOutSec   = parser.get<uint>("timeout");
 
     if (!parser.check())
     {
@@ -192,6 +193,7 @@ int main(int argc, char** argv)
     ReaderFnArgs.prefix0        = fixedLengthString(1,3);
     ReaderFnArgs.windisplay     = RSC_input.display;
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
+    ReaderFnArgs.timeout        = uiTimeOutSec;
 
     CreateOutputFolder(soutFolder);
 
@@ -209,9 +211,16 @@ int main(int argc, char** argv)
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
 
 //    char c = 0;
-//    while(c!='q'){
+    //Set TimeOut
+//    double tstart = (double)cv::getTickCount();
+//    double t=0;
+//    char c;
+//    //Wait Until Time Or q pressed
+//    while(c!='q' && t < uiTimeOutSec){
+//        t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 //        //What for Quit
-//        c=cv::waitKey(100);
+
+//        c=cv::waitKey(1);
 //    }
 
 
@@ -219,7 +228,7 @@ int main(int argc, char** argv)
     sem_destroy(&semImgFishDetected);
 
     //cam.StopCapture();
-    //cam.Disconnect();
+   // cam.Disconnect();
 
 
 

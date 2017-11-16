@@ -542,7 +542,7 @@ void *ReadImageSeq(void* tdata){
 
     cv::Mat cvimage;
     cv::Mat im_with_keypoints;
-
+    int fishFlag = 0;
 
 
 
@@ -563,7 +563,7 @@ void *ReadImageSeq(void* tdata){
 
     // Filter by Area.
     params.filterByArea = true;
-    params.minArea = 100;
+    params.minArea = 250;
     params.maxArea = 1000;
 
     /////An inertia ratio of 0 will yield elongated blobs (closer to lines)
@@ -589,7 +589,12 @@ void *ReadImageSeq(void* tdata){
 
     cout << "Reading image sequence. Press q to exit." << endl;
     char c='1';
-	while(c!='q'){
+    double tstart = (double)cv::getTickCount();
+    double t = 0;
+
+    while(c!='q' && (t < Reader_input->timeout || gbrecording)){
+
+        t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 
         sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
         int value;
@@ -644,7 +649,7 @@ void *ReadImageSeq(void* tdata){
 
             cv::circle(im_with_keypoints,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2+20,CV_RGB(0,205,15),1,cv::LINE_8);
 
-            cv::imshow("keypoints", im_with_keypoints );
+            cv::imshow("Fish Camera View", im_with_keypoints );
 
 
         }
@@ -657,7 +662,7 @@ void *ReadImageSeq(void* tdata){
 
         ///Tell Recorded Fish Is Here if Blob has been Detected
         /// Press r To Force Recording
-        int fishFlag;
+
         sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
         if ((fishFlag ==0 && keypoints_in_mask.size() > 0) || c =='r') //Post That Fish Have been Found
         {
@@ -675,6 +680,22 @@ void *ReadImageSeq(void* tdata){
 
     sem_wait(&semImgFishDetected); //Decrement Value Of Fish Exists - And So Stop Recording
     detector->clear();
+
+
+    if (t >= Reader_input->timeout)
+    {
+        cv::putText(im_with_keypoints,"Time-Out reached",cv::Point(20,20),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(255,0,0));
+        cv::imshow("Fish Camera View", im_with_keypoints );
+        std::clog << "Maximum Recording Duration reached :"<< Reader_input->timeout << " sec" << std::endl;
+        cv::waitKey(1000);
+    }
+
+
+
+    pthread_exit(EXIT_SUCCESS);
+    //std::exit();
+    return 0;
+
 }
 
 int Run_SingleCamera(PGRGuid guid)

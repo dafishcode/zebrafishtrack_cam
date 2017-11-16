@@ -53,6 +53,7 @@ struct thread_data{
     int mode;
     char* format;
     string prefix0;
+    uint timeout;
 };
 
 ///Used for Image Capture
