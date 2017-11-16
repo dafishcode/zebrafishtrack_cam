@@ -562,14 +562,14 @@ void *ReadImageSeq(void* tdata){
     params.filterByColor        = false;
     params.filterByConvexity    = false;
 
-    //params.maxThreshold = 16;
-    //params.minThreshold = 8;
-    //params.thresholdStep = 2;
+    params.maxThreshold = 36;
+    params.minThreshold = 18;
+    params.thresholdStep = 3;
 
     // Filter by Area.
     params.filterByArea = true;
-    params.minArea = 250;
-    params.maxArea = 1000;
+    params.minArea = 200;
+    params.maxArea = 600;
 
     /////An inertia ratio of 0 will yield elongated blobs (closer to lines)
     ///  and an inertia ratio of 1 will yield blobs where the area is more concentrated toward the center (closer to circles).
@@ -597,10 +597,16 @@ void *ReadImageSeq(void* tdata){
     double tstart = (double)cv::getTickCount();
     double t = 0;
 
-    while(c!='q' && (t < Reader_input->timeout+1 || gbrecording)){
+    std::cout << (Reader_input->timeout-t)/60.0 << "minutes left" << std::endl;
+
+    while(c!='q' && (t < (Reader_input->timeout+1) || gbrecording)){
         c=cv::waitKey(20);
         t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 
+        if ((uint)t % 60 == 0 && t > 1 )
+        {
+            std::cout << (Reader_input->timeout-t)/60.0 << "minutes left" << std::endl;
+        }
         sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
         int value;
         sem_getvalue(&semImgCapCount, &value); //Read Current Frame

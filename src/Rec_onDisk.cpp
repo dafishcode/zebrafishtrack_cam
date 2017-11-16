@@ -147,6 +147,7 @@ int main(int argc, char** argv)
     cam.GetVideoModeAndFrameRate(&cVidMod,&cFps);
     std::cout << "///// Current Camera Video Mode ////" << std::endl;
     std::cout << "Vid Mode :" << cVidMod << " Fps Mode Set: " << cFps << std::endl;
+    std::cout << "Will Record for a total of " << uiTimeOutSec << "Sec" << std::endl;
 
    // cam.SetVideoModeandFrameRate( VIDEOMODE_640x480Y8 , FRAMERATE_FORMAT7 );
     if ((k_fmt7PixFmt & fmt7Info.pixelFormatBitField) == 0)
@@ -172,7 +173,7 @@ int main(int argc, char** argv)
     //Make Mask
     ///Draw ROI Mask
     gframeMask = cv::Mat::zeros(fmt7Info.maxHeight,fmt7Info.maxWidth,CV_8UC1);
-    cv::circle(gframeMask,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2+20,CV_RGB(255,255,255),-1,CV_FILLED);
+    cv::circle(gframeMask,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-80,CV_RGB(255,255,255),-1,CV_FILLED);
 
 
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);
