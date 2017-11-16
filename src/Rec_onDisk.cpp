@@ -173,7 +173,7 @@ int main(int argc, char** argv)
     //Make Mask
     ///Draw ROI Mask
     gframeMask = cv::Mat::zeros(fmt7Info.maxHeight,fmt7Info.maxWidth,CV_8UC1);
-    cv::circle(gframeMask,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-80,CV_RGB(255,255,255),-1,CV_FILLED);
+    cv::circle(gframeMask,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-50,CV_RGB(255,255,255),-1,CV_FILLED);
 
 
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);

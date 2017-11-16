@@ -562,13 +562,13 @@ void *ReadImageSeq(void* tdata){
     params.filterByColor        = false;
     params.filterByConvexity    = false;
 
-    params.maxThreshold = 36;
-    params.minThreshold = 18;
-    params.thresholdStep = 3;
+    //params.maxThreshold = 31;
+    //params.minThreshold = 21;
+    //params.thresholdStep = 2;
 
     // Filter by Area.
     params.filterByArea = true;
-    params.minArea = 200;
+    params.minArea = 120;
     params.maxArea = 600;
 
     /////An inertia ratio of 0 will yield elongated blobs (closer to lines)
@@ -603,9 +603,9 @@ void *ReadImageSeq(void* tdata){
         c=cv::waitKey(20);
         t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 
-        if ((uint)t % 60 == 0 && t > 1 )
+        if ((uint)t % 60 < 0.0001 && t > 1 )
         {
-            std::cout << (Reader_input->timeout-t)/60.0 << "minutes left" << std::endl;
+            std::cout << round((Reader_input->timeout-t)/60.0) << "minutes left" << std::endl;
         }
         sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
         int value;
@@ -664,7 +664,7 @@ void *ReadImageSeq(void* tdata){
             }
             //Show Masked Version
 
-            cv::circle(im_with_keypoints,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2+20,CV_RGB(0,205,15),1,cv::LINE_8);
+            cv::circle(im_with_keypoints,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-50,CV_RGB(0,205,15),1,cv::LINE_8);
 
             cv::imshow("Fish Camera View", im_with_keypoints );
 
