@@ -48,12 +48,12 @@ int main(int argc, char** argv)
         "{@outputDir     |<none>| Dir where To save sequence of images }"
         "{@crop          | 0    | ROI to crop images before save       }"
         "{cammode m      |1     | Mode 1 is low Res high FPS}"
-        "{fps            | 350.0| Camera capture fps and output video fps}"
+        "{fps            | 450.0| Camera capture fps and output video fps}"
         "{shutter        | 3.0  | Camera shutter speed - set to 3ms }"
         "{eventtimeout e |240   | Max event recording duration, new event is created after timeout }"
         "{timeout t      |600   | Max recording time in seconds, stops the recording process (= 10 mins)  }"
         "{ts timestamp   |false | use time stamp       }"
-        "{e event        |false | Record only when fish is visible (Event Capture))  }"
+        "{e event        |true | Record only when fish is visible (Event Capture))  }"
         ;
 
     cv::CommandLineParser parser(argc, argv, keys);
@@ -63,7 +63,7 @@ int main(int argc, char** argv)
     ssMsg<<"Zebrafish Experiments Recording for the Cameleon 3 FLIR camera."<<endl;
     ssMsg<<"--------------------------"<<endl;
     ssMsg<<"Author : Kontantinos Lagogiannis 2017"<<endl;
-    ssMsg<<"./Rec_onDisk <MODE=1> <outfolder> <crop=0> <fps=350> <duration=120sec> <timestamp=false>"<<endl;
+    ssMsg<<"./Rec_onDisk <MODE=1> <outfolder> <crop=0> <fps=450> <timeout=600sec> <timestamp=false>"<<endl;
     ssMsg<<"(note: folder is automatically generated when absent)"<<endl;
 
     parser.about(ssMsg.str() );
