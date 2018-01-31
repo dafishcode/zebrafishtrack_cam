@@ -14,7 +14,7 @@ do
 	  filename=${dir//[\/]/_}
 	  filename=${filename//[.]/}
 	  echo $filename
-	   avconv -framerate $fps -i $dir/%10d.pgm -c:v libx264 -crf 15 -crf_max 33 $outdir/$filename.mp4
+	   avconv -framerate $fps -i $dir/%10d.pgm -c:v libx264 -crf 18 -crf_max 35 $outdir/$filename.mp4
 	fi
 
 
