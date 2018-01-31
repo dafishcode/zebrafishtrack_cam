@@ -455,7 +455,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         }
 
 
-        ///Check Event Length Limits
+        ///Check Limits
         if ((UINT_MAX == i || i == cMaxFrames) && gbrecording ) //Full
         {   std::cerr << "limit Of rec Period Reached";
             gbrecording = false;
