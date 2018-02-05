@@ -14,10 +14,13 @@ do
 	  filename=${dir//[\/]/_}
 	  filename=${filename//[.]/}
 	  echo $filename
-	   avconv -framerate $fps -i $dir/%10d.pgm -c:v libx264 -crf 15 -crf_max 33 $outdir/$filename.mp4
+	   avconv -framerate $fps -i $dir/%10d.pgm -c:v libx264 -crf 16 -crf_max 35 $outdir/$filename.mp4
 	fi
 
 
-# Do something with $dir...
+
+##Check Through Produced Videos For Broken Ones
+find . -name "$outdir/*.mp4" -exec avconv -v error -i "{}" -map 0:0 -f null - 2>error.log \;
+
 done
 
