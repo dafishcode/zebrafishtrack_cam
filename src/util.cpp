@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip> //For setprecision
 #include <sstream>
 #include<fstream>
 #include<signal.h>
@@ -599,16 +600,18 @@ void *ReadImageSeq(void* tdata){
     char c='1';
     double tstart = (double)cv::getTickCount();
     double t = 0;
+    double lastRept = 0;
 
-    std::cout << (Reader_input->timeout-t)/60.0 << "minutes left" << std::endl;
+    std::cout << std::setprecision(4) << (Reader_input->timeout-t)/60.0 << " minutes left" << std::endl;
 
     while(c!='q' && (t < (Reader_input->timeout+1) || gbrecording)){
         c=cv::waitKey(20);
         t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 
-        if ((uint)t % 60 < 0.0001 && t > 1 )
+        if (t > 1 && (t-lastRept)>60 )
         {
-            std::cout << round((Reader_input->timeout-t)/60.0) << "minutes left" << std::endl;
+            lastRept = t;
+            std::cout << std::setprecision(4) << round((Reader_input->timeout-t)/60.0) << " minutes left" << std::endl;
         }
         sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
         int value;
