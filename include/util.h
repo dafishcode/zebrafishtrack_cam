@@ -27,6 +27,7 @@ extern pthread_cond_t cond;
 extern pthread_mutex_t lock;
 extern bool bImgCaptured;/// Global Flag indicating new Image Has been captured by camera
 extern bool gbrecording; //Glag That Images Are being saved
+extern bool gbtimeoutreached; //Glag That Images Are being saved
 
 class ioparam {
 	public:

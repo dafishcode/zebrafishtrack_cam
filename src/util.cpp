@@ -21,8 +21,9 @@
 using namespace std;
 using namespace FlyCapture2;
 
-bool gbrecording   =   false; //Global Variable Indicating Files are saved to disk
-bool gbrun         =true; //Global Flag CAn Be Altered by Signal Handler
+bool gbtimeoutreached =  false; //Global Flag used from readImSeq to stop RecOnDisc from Starting a new recording
+bool gbrecording      =  false; //Global Variable Indicating Files are saved to disk
+bool gbrun            =  true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 
@@ -457,9 +458,10 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
         ///Check Limits
         if ((UINT_MAX == i || i == cMaxFrames) && gbrecording ) //Full
-        {   std::cerr << "limit Of rec Period Reached";
+        {   std::cerr << "limit Of Event Period Reached / End Recording of this event.";
             gbrecording = false;
             std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (i+1)) << std::endl;
+
         }
 
         //Read in If Recording Needs to End
@@ -478,7 +480,8 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
        }
 
         //Fish Just Appeared - Count Event And Start Recording
-        if (fishFlag > 0 && !gbrecording)
+        /// Check Recording Period Has not timedout
+        if (fishFlag > 0 && !gbrecording && !gbtimeoutreached)
         {
             fishTimeout         = ZR_FISHTIMEOUT; //rESET tIMER
             //Make New    Sub Directory Of Next Recording
@@ -660,6 +663,7 @@ void *ReadImageSeq(void* tdata){
             if (t >= Reader_input->timeout)
             {
                 cv::putText(im_with_keypoints,"Time-Out reached",cv::Point(20,20),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(255,0,0));
+                gbtimeoutreached = true; //Setting to true stops new events starting once this ones times out
 
             }
             //Show Masked Version
