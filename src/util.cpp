@@ -547,7 +547,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 /// using keypress-
 ///
 void *ReadImageSeq(void* tdata){
-    const double dBGLearningRate = 0.002;
+    const double dBGLearningRate = 0.001;
     int ind=0;
     int nImgDisplayed = 0;
 
