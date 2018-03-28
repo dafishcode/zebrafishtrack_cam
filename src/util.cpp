@@ -536,7 +536,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     ///Leave App
     pthread_exit(EXIT_SUCCESS);
 
-    exit(0);
+    //exit(0);
 
     return 0;
 }
@@ -547,7 +547,8 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 /// using keypress-
 ///
 void *ReadImageSeq(void* tdata){
-	int ind=0;
+    const double dBGLearningRate = 0.002;
+    int ind=0;
     int nImgDisplayed = 0;
 
     cv::Mat cvimage;
@@ -645,7 +646,7 @@ void *ReadImageSeq(void* tdata){
             //cv::imshow(Reader_input->windisplay,gframeBuffer);
             //Apply MOG BG Substraction - To Remove Any artificial Triggering
             // (For example When doing the barrie experiments )
-            pMOG2->apply(gframeBuffer, fgMaskMOG2);
+            pMOG2->apply(gframeBuffer, fgMaskMOG2,dBGLearningRate);
             detector->detect( fgMaskMOG2, keypoints,gframeMask); //frameMask
 
             //Mask Is Ignored so Custom Solution Required
@@ -711,7 +712,12 @@ void *ReadImageSeq(void* tdata){
 
     } //Main Loop Wait for control input
 
-    sem_wait(&semImgFishDetected); //Decrement Value Of Fish Exists - And So Stop Recording
+    timespec tout;
+    tout.tv_sec = 1;
+    tout.tv_nsec = 0;
+    sem_timedwait(&semImgFishDetected,&tout); //Try Decrement Value Of Fish Exists - And So Stop Recording
+    gbrun = false; //Flag that stops the inf loop of recorder.
+
     detector->clear();
 
 
@@ -720,6 +726,7 @@ void *ReadImageSeq(void* tdata){
         std::cout << "Maximum Recording Duration reached :"<< Reader_input->timeout << " sec" << std::endl;
         cv::imshow("Fish Camera View", im_with_keypoints );
         //std::flush;
+  //      gbrun = false;
         cv::waitKeyEx(200);
         usleep(5000);
    }
@@ -727,7 +734,8 @@ void *ReadImageSeq(void* tdata){
 
 
     pthread_exit(EXIT_SUCCESS);
-    std::exit(EXIT_SUCCESS);
+//
+    //std::exit(EXIT_SUCCESS);
     return 0;
 
 }

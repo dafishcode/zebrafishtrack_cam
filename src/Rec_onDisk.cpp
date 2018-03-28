@@ -210,7 +210,8 @@ int main(int argc, char** argv)
 
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
-
+    pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
+    //pthread_kill(tidRec,SIGTERM); //Stop The recording Thread
 //    char c = 0;
     //Set TimeOut
 //    double tstart = (double)cv::getTickCount();
@@ -228,6 +229,9 @@ int main(int argc, char** argv)
     sem_destroy(&semImgCapCount);
     sem_destroy(&semImgFishDetected);
 
+    std::cout <<  std::endl << "~~ Done ~~" << std::endl;
+
+    std::exit(EXIT_SUCCESS);
     //cam.StopCapture();
    // cam.Disconnect();
 
