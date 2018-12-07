@@ -580,7 +580,7 @@ void *ReadImageSeq(void* tdata){
     // Filter by Area.
     params.filterByArea = true;
     params.minArea = 120;
-    params.maxArea = 600;
+    params.maxArea = 1200;
 
     /////An inertia ratio of 0 will yield elongated blobs (closer to lines)
     ///  and an inertia ratio of 1 will yield blobs where the area is more concentrated toward the center (closer to circles).
