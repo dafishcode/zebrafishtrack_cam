@@ -28,6 +28,7 @@ bool gbrecording      =  false; //Global Variable Indicating Files are saved to 
 bool gbrun            =  true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
+extern uint uiEventMinDuration; //min duration for an event (if nothing shows up in view)
 
 
 std::string fixedLengthString(int value, int digits) {
@@ -351,7 +352,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     char buff[20]; //For Time Stamp
     struct tm *sTm;
 
-    int fishTimeout         = ZR_FISHTIMEOUT;
+
     unsigned int i          = 0;
     double ms0            = cv::getTickCount();
     double ms1            = 0;
@@ -362,6 +363,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
     RSC_input =  (struct thread_data2 *)tdata; //Cast To CXorrect pointer Type
 
     unsigned int cMaxFrames = RSC_input->MaxFrameDuration;
+    int fishTimeout         = RSC_input->eventtimeout;
 
     Error error;  
 

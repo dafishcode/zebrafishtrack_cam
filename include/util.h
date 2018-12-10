@@ -15,7 +15,7 @@
 
 #define ZR_OUTPICFORMAT  ".pgm"
 #define ZR_WINDOWNAME     "display"
-#define ZR_FISHTIMEOUT    900
+#define ZR_FISHTIMEOUT    60 //sec of min time recording
 using namespace std;
 using namespace FlyCapture2;
 
@@ -55,6 +55,7 @@ struct thread_data{
     char* format;
     string prefix0;
     uint timeout;
+
 };
 
 ///Used for Image Capture
@@ -62,10 +63,12 @@ struct thread_data2{
 	Camera *cam;
     string proc_folder;
     int eventCount; ///Number of Times Fish Has been cited/ Prey cApture events
+    uint eventtimeout; //Min n of frames an event recording should last
     string display;
     size_t seq_size;
     uint MaxFrameDuration;
     bool crop;
+
 };
 
 

@@ -52,6 +52,7 @@ int main(int argc, char** argv)
         "{shutter        | 3.0  | Camera shutter speed - set to 3ms }"
         "{eventtimeout e |240   | Max event recording duration, new event is created after timeout }"
         "{timeout t      |600   | Max recording time in seconds, stops the recording process (= 10 mins)  }"
+        "{mineventduration d |30 | min duration (sec) of event once recording is triggered (1st event is autotriggered) }"
         "{ts timestamp   |false | use time stamp       }"
         "{e event        |true | Record only when fish is visible (Event Capture))  }"
         ;
@@ -85,6 +86,7 @@ int main(int argc, char** argv)
     string soutFolder   = parser.get<string>("@outputDir");
     bool use_time_stamp = parser.has("timestamp");
     uint uiTimeOutSec   = parser.get<uint>("timeout");
+    uint uiEventMinDuration = parser.get<uint>("mineventduration");
 
     if (!parser.check())
     {
@@ -147,7 +149,8 @@ int main(int argc, char** argv)
     cam.GetVideoModeAndFrameRate(&cVidMod,&cFps);
     std::cout << "///// Current Camera Video Mode ////" << std::endl;
     std::cout << "Vid Mode :" << cVidMod << " Fps Mode Set: " << cFps << std::endl;
-    std::cout << "Will Record for a total of " << uiTimeOutSec << "Sec" << std::endl;
+    std::cout << "Will Record for a total of " << uiTimeOutSec << "sec" << std::endl;
+    std::cout << "Min event duration " << uiEventMinDuration << " sec" << std::endl;
 
    // cam.SetVideoModeandFrameRate( VIDEOMODE_640x480Y8 , FRAMERATE_FORMAT7 );
     if ((k_fmt7PixFmt & fmt7Info.pixelFormatBitField) == 0)
@@ -165,6 +168,7 @@ int main(int argc, char** argv)
     RSC_input.display           = string(ZR_WINDOWNAME);
     RSC_input.crop              = iCrop;
     RSC_input.MaxFrameDuration =  fFrameRate*uiduration; //Calc Max Frames given camera FPS
+    RSC_input.eventtimeout     =  (uint)((float)uiEventMinDuration/fFrameRate); //min duration of an event in frames
     RSC_input.eventCount        = 0;//Start Zero And IMg Detection will increment this
     //init Semaphore
     sem_init(&semImgCapCount,0,0);
@@ -195,6 +199,8 @@ int main(int argc, char** argv)
     ReaderFnArgs.windisplay     = RSC_input.display;
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
     ReaderFnArgs.timeout        = uiTimeOutSec;
+
+
 
     CreateOutputFolder(soutFolder);
 
