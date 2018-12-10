@@ -1,3 +1,18 @@
+/// * \title zebraprey_cam
+/// \author Konstantinos Lagogiannis 2017
+/// \brief An event triggered recoding software used with pointgrey camera drivers.
+/// records a an event for a min of mineventduration, up to max (2min).
+///  on execution 1st event is immediatelly recorded, subsequent events trigger when a blob of sufficient size (like zebrafish)
+/// is in view.
+///
+/// \param fps
+/// \param timeout
+/// \param mineventduration
+/// \param mode 0/1 :  0 hres low fps,
+/// \example ./zebraprey_cam '/mnt/SSDFastDisk/camera/expDataDylan/tst15/' --fps=30 --timeout=40 --mineventduration=5 --cammode=0
+///*
+
+
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/utility.hpp>
@@ -168,7 +183,7 @@ int main(int argc, char** argv)
     RSC_input.display           = string(ZR_WINDOWNAME);
     RSC_input.crop              = iCrop;
     RSC_input.MaxFrameDuration =  fFrameRate*uiduration; //Calc Max Frames given camera FPS
-    RSC_input.eventtimeout     =  (uint)((float)uiEventMinDuration/fFrameRate); //min duration of an event in frames
+    RSC_input.eventtimeout     =  (uint)(uiEventMinDuration*fFrameRate); //min duration of an event in frames
     RSC_input.eventCount        = 0;//Start Zero And IMg Detection will increment this
     //init Semaphore
     sem_init(&semImgCapCount,0,0);

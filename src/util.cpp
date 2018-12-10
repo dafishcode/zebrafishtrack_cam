@@ -477,7 +477,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
            if (fishTimeout < 1)
            {
                 gbrecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
-                std::cout << "Event "<< RSC_input->eventCount << " Mean Rec fps " << fixed << 1.0/(dmFps / (i+1))<< std::endl;
+                std::cout << "Event "<< RSC_input->eventCount << " Duration:" << dmFps << " sec, Mean Rec fps " << fixed << 1.0/(dmFps / (i+1))<< std::endl;
            }
            else
                fishTimeout--;
@@ -487,7 +487,7 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
         /// Check Recording Period Has not timedout
         if (fishFlag > 0 && !gbrecording && !gbtimeoutreached)
         {
-            fishTimeout         = ZR_FISHTIMEOUT; //rESET tIMER
+            fishTimeout         = RSC_input->eventtimeout; //rESET tIMER
             //Make New    Sub Directory Of Next Recording
             RSC_input->eventCount++;
             outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3);
