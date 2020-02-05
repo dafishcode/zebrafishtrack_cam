@@ -1,4 +1,5 @@
-//
+// Kostasl I ve added this so I can Log Temperature readings simultaneously
+// However it is still not in use.
 // arduino-serial-lib -- simple library for reading/writing serial ports
 //
 // 2006-2013, Tod E. Kurt, http://todbot.com/blog/

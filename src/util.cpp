@@ -197,6 +197,17 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
         return;
     }
 
+    /// Require Timestamp from camera
+    EmbeddedImageInfo imageInfo;
+    imageInfo.timestamp.onOff = true;
+    error = cam->SetEmbeddedImageInfo(&imageInfo);
+    if (error != PGRERROR_OK)
+    {
+        delete cam;
+        PrintError(error);
+        return;
+    }
+
 
     if (propInfo.present == true)
      {
@@ -270,7 +281,6 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
    }
 
    std::cout << " Camera Frame rate is " << fixed  << frmRate.absValue  << " fps" << std::endl;
-
    pfFrameRate =  frmRate.absValue;
 
 
@@ -349,7 +359,7 @@ void Select_ROI(Camera *cam, ioparam &center, bool &recording){
 ///  Called by Recording Thread To begin Camera Capture
 void *Rec_onDisk_SingleCamera2(void *tdata)
 {
-    char buff[20]; //For Time Stamp
+    char buff[32]; //For Time Stamp
     struct tm *sTm;
 
 
@@ -451,11 +461,18 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
             i++;
 
-            // do something ...
+            ///LOG: Append Frame Timing To Event Logfile
+            // CPU Tick Time
             ms1 = (double)cv::getTickCount();
             double delta = (ms1-ms0)/cv::getTickFrequency();
             ms0 = ms1;
-            logfile << RSC_input->eventCount <<'\t'<< i <<'\t'<<delta<<'\t' << buff << std:: endl;
+            //Get Camera Timestamp
+            TimeStamp tsmp_cam = rawImage.GetTimeStamp(); //count restart for microseconds
+            //logfile<<ms1<<' '<<cv::getTickFrequency()<<' '<<tsmp.microSeconds<<' '<<tsmp.cycleCount<<endl;
+            //int64 ms1 = cv::getTickCount();
+            //logfile<<cv::getTickCount()<<' '<<TS.seconds*1e6+TS.microSeconds<<' '<<0<<endl;
+
+            logfile << RSC_input->eventCount <<'\t'<< i <<'\t'<<delta<<'\t' << buff << "\t" << tsmp_cam.cycleSeconds+10e3*tsmp_cam.microSeconds << std:: endl;
             dmFps += delta;
         }
 
@@ -508,9 +525,6 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
 
 
-
-
-
     } //Main Loop
 
     //Report Mean FPS
@@ -542,7 +556,6 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
 
     return 0;
 }
-
 
 /// \brief Displays Captured Image / Detects Fish Automatically and signals Recording
 /// Called after recording is finished - this function shows each recorded image and allows to move through
@@ -627,7 +640,7 @@ void *ReadImageSeq(void* tdata){
         sem_getvalue(&semImgCapCount, &value); //Read Current Frame
         //printf("The value of the semaphors is %d\n", value);
 
-        ind = value+nImgDisplayed; //Semaphore Value Should be number of images Not Display Yet (ie Sem Incrmenets)
+        ind = value+nImgDisplayed; //Semaphore Value Should be number of images N3ot Display Yet (ie Sem Incrmenets)
 
         //if(c=='f') ind++;
         //if(c=='b') ind=max(0,ind-1);
