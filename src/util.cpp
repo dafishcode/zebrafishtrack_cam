@@ -452,15 +452,6 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             sTm = gmtime (&now);
             strftime (buff, sizeof(buff), "%H:%M:%S", sTm);
 
-
-            stringstream filename;
-            filename << outfolder << "/"  << fixedLengthString(i) <<".pgm";
-            //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
-
-            //rawImage.Save(filename.str().c_str()); //This is SLOW!!
-            cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
-            i++;
-
             ///LOG: Append Frame Timing To Event Logfile
             // CPU Tick Time
             ms1 = (double)cv::getTickCount();
@@ -468,11 +459,20 @@ void *Rec_onDisk_SingleCamera2(void *tdata)
             ms0 = ms1;
             //Get Camera Timestamp
             TimeStamp tsmp_cam = rawImage.GetTimeStamp(); //count restart for microseconds
-            //logfile<<ms1<<' '<<cv::getTickFrequency()<<' '<<tsmp.microSeconds<<' '<<tsmp.cycleCount<<endl;
-            //int64 ms1 = cv::getTickCount();
-            //logfile<<cv::getTickCount()<<' '<<TS.seconds*1e6+TS.microSeconds<<' '<<0<<endl;
+            double tscam_sec = tsmp_cam.cycleSeconds+10e3*tsmp_cam.microSeconds;
+            logfile << RSC_input->eventCount <<'\t'<< i <<'\t'<<delta<<'\t' << buff << "\t" << tscam_sec << std:: endl;
 
-            logfile << RSC_input->eventCount <<'\t'<< i <<'\t'<<delta<<'\t' << buff << "\t" << tsmp_cam.cycleSeconds+10e3*tsmp_cam.microSeconds << std:: endl;
+            stringstream filename;
+            filename << outfolder << "/"  << fixedLengthString(i) <<".pgm";
+            //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
+            //rawImage.Save(filename.str().c_str()); //This is SLOW!!
+            //Add timestamp to image frame
+            sprintf(buff,"%.2f",tscam_sec );
+            cv::putText(cvm,buff,cv::Point(cvm.cols-30,cvm.rows-30),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(50,200,50));
+
+            cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
+            i++;
+
             dmFps += delta;
         }
 
