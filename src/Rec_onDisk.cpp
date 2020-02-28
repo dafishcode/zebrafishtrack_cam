@@ -68,7 +68,7 @@ int main(int argc, char** argv)
         "{eventtimeout e |240   | Max event recording duration, new event is created after timeout }"
         "{timeout t      |600   | Max recording time in seconds, stops the recording process (= 10 mins)  }"
         "{mineventduration d |30 | min duration (sec) of event once recording is triggered (1st event is autotriggered) }"
-        "{ts timestamp   |false | use time stamp       }"
+        "{ts timestamp   |true | use time stamp       }"
         "{e event        |true | Record only when fish is visible (Event Capture))  }"
         ;
 
