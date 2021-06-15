@@ -237,7 +237,8 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
      prop.autoManualMode = false;
      prop.absControl = true;
 
-     const float k_shutterVal = 3.00;//3ms Shutter speed
+     float k_shutterVal = fshutter;//3ms Shutter speed
+
      prop.absValue = k_shutterVal;
 
      error = cam->SetProperty(&prop);
@@ -275,7 +276,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
 
    /// Retrieve Shutter property
      Property propShutter;
-     frmRate.type = SHUTTER;
+     propShutter.type = SHUTTER;
      error = cam->GetProperty(&propShutter);
      if (error != PGRERROR_OK)
      {

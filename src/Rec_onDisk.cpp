@@ -50,7 +50,7 @@ pthread_mutex_t lock    = PTHREAD_MUTEX_INITIALIZER;
 bool bImgCaptured       = false;/// Global Flag indicating new Image Has been captured by camera
 
 // Attempts to connect to Camera And Check If Cam supports A particular MODE
-int connectCam(BusManager& busMgr,Camera& cam,int camIDX,Format7Info fmt7Info)
+int connectCam(BusManager& busMgr,Camera& cam,int camIDX,Format7Info& fmt7Info)
 {
     PGRGuid guid;
     Error error;
@@ -152,7 +152,7 @@ int main(int argc, char** argv)
 
 
     Mode k_fmt7ModeA     = MODE_1; //Default
-    Mode k_fmt7ModeB     = MODE_0; //Default
+    Mode k_fmt7ModeB     = MODE_1; //Default
 
     k_fmt7ModeA          = (Mode)parser.get<int>("camAmode");
     k_fmt7ModeB          = (Mode)parser.get<int>("camBmode");
@@ -199,7 +199,7 @@ int main(int argc, char** argv)
        std::cout << "There N=" << numCameras << " Cameras connected " << std::endl;
 
     ///Connect to 1st Camera
-    if (connectCam(busMgr,camA,0,fmt7InfoA) == 1)
+    if (connectCam(busMgr,camA,1,fmt7InfoA) == 1)
     {
         ///Set mode and Print Camera Info / In/Out Camera Fps Setting - Setting And Actual
         SetCam(&camA,f7,k_fmt7ModeA,k_fmt7PixFmt,fFrameRateA,fshutterA);
@@ -291,7 +291,7 @@ int main(int argc, char** argv)
 
 
     // Start rec and proc threads /////////////////////////////////////////////////////////////////////
-    boost::thread T_REC(Rec_onDisk_TopCamera, std::ref(circ_buffer), std::ref(RSC_input) ) ;
+    boost::thread T_REC(Rec_onDisk_TopCamera, boost::ref(circ_buffer), boost::ref(RSC_input) ) ;
 
     if(T_REC.joinable()){
         T_REC.join();
