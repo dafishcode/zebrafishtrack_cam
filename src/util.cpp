@@ -466,18 +466,22 @@ void* Rec_onDisk_SingleCamera2(void *tdata)
             ms1 = (double)cv::getTickCount();
             double delta = (ms1-ms0)/cv::getTickFrequency();
             ms0 = ms1;
-            //Get Camera Timestamp
+            //Get Timestamp
             TimeStamp tsmp_cam = rawImage.GetTimeStamp(); //count restart for microseconds
-            double tscam_sec = tsmp_cam.cycleSeconds+10e3*tsmp_cam.microSeconds;
-            logfile << RSC_input->eventCount <<'\t'<< i <<'\t'<<delta<<'\t' << buff << "\t" << tscam_sec << std:: endl;
+            // FlyCapture2: reference the seconds and microseconds attributes of the TimeStamp structure
+            // *, where seconds is UNIX time in seconds*
+            //OUtput TSstmp seconds and millisec of each frame
+            logfile << RSC_input->eventCount <<'\t'<< i <<'\t'<<delta<<'\t' << buff << "\t" << tsmp_cam.seconds << "\t" << tsmp_cam.microSeconds/10e3 << std:: endl;
 
             stringstream filename;
             filename << outfolder << "/"  << fixedLengthString(i) <<".pgm";
             //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
             //rawImage.Save(filename.str().c_str()); //This is SLOW!!
-            //Add timestamp to image frame
-            sprintf(buff,"%.2f",tscam_sec );
-            cv::putText(cvm,buff,cv::Point(cvm.cols-30,cvm.rows-30),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(50,200,50));
+            //Add microseconds timestamp to image frame
+            sprintf(buff,"%06.0f",(float)tsmp_cam.microSeconds);
+            cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-20),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
+            //sprintf(buff,"%d",tsmp_cam.cycleCount);
+            //cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-8),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
 
             cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
             i++;
