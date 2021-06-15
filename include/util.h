@@ -12,6 +12,9 @@
 #include <pthread.h>
 #include <semaphore.h>
 
+#include "../include/aux.h"
+#include "../include/circular_buffer_ts.h"
+
 
 #define ZR_OUTPICFORMAT  ".pgm"
 #define ZR_WINDOWNAME     "display"
@@ -76,7 +79,7 @@ void my_handler(int);
 
 void CreateOutputFolder(string folder);
 void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, float& pfFrameRate,float& pfShutter);
-std::string fixedLengthString(int value, int digits = 10);
+
 inline void PrintError(Error error) { error.PrintErrorTrace(); }
 void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);
@@ -85,5 +88,7 @@ int Rec_SingleCamera(void*);
 void *Rec_onDisk_SingleCamera2(void *tdata);
 void *ReadImageSeq(void *tdata);
 int Run_SingleCamera(PGRGuid);
+
+void* Rec_onDisk_TopCamera(circular_buffer_ts &circ_buffer,thread_data2 &RSC_input); //Low FPS Top Camera Thread
 
 #endif

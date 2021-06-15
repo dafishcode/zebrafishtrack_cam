@@ -5,7 +5,7 @@
 #include<signal.h>
 #include <sys/stat.h> //for Mkdir
 #include <sys/types.h> //Not Necessary for Mkdir
-#include"../include/util.h"
+
 #include <time.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -19,9 +19,15 @@
 #include <Utilities.h>
 #include <CameraBase.h>
 
+#include"../include/util.h"
+#include"../include/circular_buffer_ts.h"
 
 using namespace std;
 using namespace FlyCapture2;
+
+
+bool run=true;
+boost::mutex mtx;
 
 bool gbtimeoutreached =  false; //Global Flag used from readImSeq to stop RecOnDisc from Starting a new recording
 bool gbrecording      =  false; //Global Variable Indicating Files are saved to disk
@@ -30,23 +36,6 @@ unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 extern uint uiEventMinDuration; //min duration for an event (if nothing shows up in view)
 
-
-std::string fixedLengthString(int value, int digits) {
-    unsigned int uvalue = value;
-    if (value < 0) {
-        uvalue = -uvalue;
-    }
-    std::string result;
-    while (digits-- > 0) {
-        result += ('0' + uvalue % 10);
-        uvalue /= 10;
-    }
-    if (value < 0) {
-        result += '-';
-    }
-    std::reverse(result.begin(), result.end());
-    return result;
-}
 
 void my_handler(int sig){
        cout<<endl<<"Recording stopped."<<endl;
@@ -353,11 +342,31 @@ void Select_ROI(Camera *cam, ioparam &center, bool &recording){
     cv::destroyWindow(ZR_WINDOWNAME);
 }
 
+/// Extension to Dual Camera - That uses Circular Bufffer
+void* Rec_onDisk_TopCamera(circular_buffer_ts &circ_buffer,thread_data2 &RSC_input)
+{
+    mtx.lock();
+    cout<< "Created main on thread "<<boost::this_thread::get_id()<<endl;
+    mtx.unlock();
+    int64 initial_time=cv::getTickCount();
+
+    FlyCapture2::Error error;
+
+
+    unsigned char* data;
+
+    stringstream logfilename;
+    logfilename	<< RSC_input.proc_folder<<"/time.log";
+    ofstream logfile(logfilename.str().c_str());
+
+    Image rawImage;
+
+}
 
 /// \brief Rec_onDisk_SingleCamera2 Captures images from Camera And Saves them to disk
 /// Signals Display Function Using Semaphor
 ///  Called by Recording Thread To begin Camera Capture
-void *Rec_onDisk_SingleCamera2(void *tdata)
+void* Rec_onDisk_SingleCamera2(void *tdata)
 {
     char buff[32]; //For Time Stamp
     struct tm *sTm;

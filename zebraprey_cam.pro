@@ -5,13 +5,16 @@
 
 HEADERS = \
    $$PWD/include/util.h \
+    include/aux.h \
+    include/circular_buffer_ts.h \
     src/arduino-serial-lib.h
 
 
 SOURCES = \
    $$PWD/src/util.cpp \
    $$PWD/src/Rec_onDisk.cpp \
-    src/arduino-serial-lib.c
+    src/arduino-serial-lib.c \
+    src/aux.cpp
 
 
 
@@ -21,6 +24,6 @@ INCLUDEPATH = \
 
 
 LIBS = `pkg-config --libs opencv`
-LIBS += -L/usr/local/lib -lflycapture -lpthread
+LIBS += -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system
 #DEFINES = 
 
