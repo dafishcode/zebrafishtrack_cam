@@ -190,7 +190,13 @@ int main(int argc, char** argv)
        PrintError(error);
        return -1;
    }
-   std::cout << "There N=" << numCameras << " Cameras connected " << std::endl;
+
+
+   if (numCameras == 0){
+        cerr << "Could not find any FLIR cameras connected. Exiting" << endl;
+        exit(-1);
+   }else
+       std::cout << "There N=" << numCameras << " Cameras connected " << std::endl;
 
     ///Connect to 1st Camera
     if (connectCam(busMgr,camA,0,fmt7InfoA) == 1)
