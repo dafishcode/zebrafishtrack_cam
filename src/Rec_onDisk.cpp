@@ -123,6 +123,8 @@ int main(int argc, char** argv)
         "{camBfps  Bf       | 40.0| Camera capture fps and output video fps}"
         "{camAshutter As       | 3.0  | Camera shutter speed - set to 3ms }"
         "{camBshutter Bs       | 3.0  | Camera shutter speed - set to 3ms }"
+        "{camAIdx Cid    |1     | Flycap Idx identifying camera that will be the main event triggered camera (choose Bottom camera)}"
+        "{camBIdx Cid    |0     | Flycap Idx to identify the camera hardware (choose idx of top camera)}"
         "{eventtimeout e |240   | Max event recording duration, new event is created after timeout }"
         "{timeout t      |600   | Max recording time in seconds, stops the recording process (= 10 mins)  }"
         "{mineventduration d |30 | min duration (sec) of event once recording is triggered on CamA (1st event is autotriggered) }"
@@ -152,8 +154,10 @@ int main(int argc, char** argv)
 
 
     Mode k_fmt7ModeA     = MODE_1; //Default
-    Mode k_fmt7ModeB     = MODE_1; //Default
+    Mode k_fmt7ModeB     = MODE_0; //Default
 
+    int camAIdx          = (int)parser.get<int>("camAIdx");
+    int camBIdx          = (int)parser.get<int>("camBIdx");
     k_fmt7ModeA          = (Mode)parser.get<int>("camAmode");
     k_fmt7ModeB          = (Mode)parser.get<int>("camBmode");
     float fFrameRateA    = parser.get<float>("camAfps");
@@ -199,7 +203,7 @@ int main(int argc, char** argv)
        std::cout << "There N=" << numCameras << " Cameras connected " << std::endl;
 
     ///Connect to 1st Camera
-    if (connectCam(busMgr,camA,1,fmt7InfoA) == 1)
+    if (connectCam(busMgr,camA,camAIdx,fmt7InfoA) == 1)
     {
         ///Set mode and Print Camera Info / In/Out Camera Fps Setting - Setting And Actual
         SetCam(&camA,f7,k_fmt7ModeA,k_fmt7PixFmt,fFrameRateA,fshutterA);
@@ -219,7 +223,7 @@ int main(int argc, char** argv)
      if (numCameras > 1)
      {
        cout << "Found 2nd Camera. Attempting to connect..." << std::endl;
-       if (connectCam(busMgr,camB,0,fmt7InfoB) == 1)
+       if (connectCam(busMgr,camB,camBIdx,fmt7InfoB) == 1)
        {
            ///Set mode and Print Camera Info / In/Out Camera Fps Setting - Setting And Actual
            SetCam(&camB,f7,k_fmt7ModeB,k_fmt7PixFmt,fFrameRateB,fshutterB);
@@ -235,18 +239,29 @@ int main(int argc, char** argv)
     std::cout << "Will Record for a total of " << uiTimeOutSec << "sec" << std::endl;
     std::cout << "Min event duration " << uiEventMinDuration << " sec" << std::endl;
 
+    // Make OutputFolder camA
+    CreateOutputFolder(soutFolder + "/camA/");
 
 
- //Got CAM1
-    //Setup thread
-    struct thread_data2 RSC_input;
-    RSC_input.cam               = &camA;
-    RSC_input.proc_folder       = soutFolder;
-    RSC_input.display           = string(ZR_WINDOWNAME);
-    RSC_input.crop              = iCrop;
-    RSC_input.MaxFrameDuration =  fFrameRateA*uiduration; //Calc Max Frames given camera FPS
-    RSC_input.eventtimeout     =  (uint)(uiEventMinDuration*fFrameRateA); //min duration of an event in frames
-    RSC_input.eventCount        = 0;//Start Zero And IMg Detection will increment this
+    //Got CAM1
+    //Setup thread Event Triggered Cam A
+    struct camera_thread_data RSC_input_camA;
+    RSC_input_camA.cam               = &camA;
+    RSC_input_camA.proc_folder       = soutFolder + "/camA/";
+    RSC_input_camA.display           = string(ZR_WINDOWNAME);
+    RSC_input_camA.crop              = iCrop;
+    RSC_input_camA.MaxFrameDuration =  fFrameRateA*uiduration; //Calc Max Frames given camera FPS
+    RSC_input_camA.eventtimeout     =  (uint)(uiEventMinDuration*fFrameRateA); //min duration of an event in frames
+    RSC_input_camA.eventCount        = 0;//Start Zero And IMg Detection will increment this
+
+    // Frames recorded when writing the buffer are specified in bufferfile
+    stringstream bufferfilename;
+    bufferfilename << RSC_input_camA.proc_folder << "camA/buffer.log";
+    ofstream bufferfile(bufferfilename.str().c_str());
+
+    // thread-safe circular buffer CAM A allows saving a Number of images prior to an Event being Triggered
+    circular_buffer_ts circ_buffer_camA(BUFFER_SIZE,RSC_input_camA.proc_folder,&bufferfile);
+    RSC_input_camA.pcircbuffer = &circ_buffer_camA;
 
     //init Semaphore
     sem_init(&semImgCapCount,0,0);
@@ -256,11 +271,9 @@ int main(int argc, char** argv)
     ///Draw ROI Mask
     gframeMask = cv::Mat::zeros(fmt7InfoA.maxHeight,fmt7InfoA.maxWidth,CV_8UC1);
     cv::circle(gframeMask,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-50,CV_RGB(255,255,255),-1,CV_FILLED);
-
-
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);
     //Start The Recording Thread
-    if (pthread_create(&tidRec, NULL, &Rec_onDisk_SingleCamera2, (void *)&RSC_input) != 0) {
+    if (pthread_create(&tidRec, NULL, &rec_onDisk_BottomCamera, (void *)&RSC_input_camA) != 0) {
         printf("Oh Ohh... Thread for Camera recording Rec_onDisk_SingleCamera2 could not start :( \n");
         camA.StopCapture();
         camA.Disconnect();
@@ -270,51 +283,40 @@ int main(int argc, char** argv)
     //cv::namedWindow(RSC_input.display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
     //cv::resizeWindow(RSC_input.display, fmt7Info.maxHeight,fmt7Info.maxWidth);
 
-    struct thread_data ReaderFnArgs;
-    ReaderFnArgs.mode           = 0; //How to Save File Mode
-    ReaderFnArgs.proc_folder    = soutFolder;
-    ReaderFnArgs.prefix0        = fixedLengthString(1,3);
-    ReaderFnArgs.windisplay     = RSC_input.display;
-    ReaderFnArgs.format         = ZR_OUTPICFORMAT;
-    ReaderFnArgs.timeout        = uiTimeOutSec;
 
 
-    CreateOutputFolder(soutFolder);
+    // Make OutputFolder camA
+    CreateOutputFolder(soutFolder + "/camB/");
+    //Setup thread Constantly On Cam B
+    struct camera_thread_data RSC_input_camB;
+    RSC_input_camB.cam               = &camA;
+    RSC_input_camB.proc_folder       = soutFolder + "/camB/";
+    RSC_input_camB.display           = string("camB display");
+    RSC_input_camB.crop              = iCrop;
+    RSC_input_camB.MaxFrameDuration =  fFrameRateB*uiTimeOutSec; //Calc Max Frames given camera FPS
+    RSC_input_camB.eventtimeout     =  (uint)(uiTimeOutSec*fFrameRateB); //min duration of an event in frames
+    RSC_input_camB.eventCount       = 0;//CAm B creates 1 event
+    RSC_input_camB.pcircbuffer       = NULL; //No Circ Buffer Required
 
-    // Frames recorded when writing the buffer are specified in bufferfile
-    stringstream bufferfilename;
-    bufferfilename << ReaderFnArgs.proc_folder << "/buffer.log";
-    ofstream bufferfile(bufferfilename.str().c_str());
-
-    // Creation of the thread-safe curcular buffer
-    circular_buffer_ts circ_buffer(BUFFER_SIZE,ReaderFnArgs.proc_folder,&bufferfile);
-
-
-    // Start rec and proc threads /////////////////////////////////////////////////////////////////////
-    boost::thread T_REC(Rec_onDisk_TopCamera, boost::ref(circ_buffer), boost::ref(RSC_input) ) ;
+    /// Start Top Camera Recording Thread / BOOST Thread Version
+    boost::thread T_REC(rec_onDisk_TopCamera, boost::ref(RSC_input_camB) ) ;
 
     if(T_REC.joinable()){
         T_REC.join();
     }
-    //boost::thread T_PROC(blob_detector_thread,std::ref(circ_buffer),std::ref(center_head));
-//    // ################################################################################################
-
-//    if(VisualStimulation_ON && run){
-//        if(!Barrage->Background_ON) Barrage->VisualStimulation(RSC_input->proc_folder,run);
-//        else Barrage->VisualStimulation_BG(RSC_input->proc_folder,run);
-//    } else display_blobs(circ_buffer);
-
-//    if(T_REC.joinable()){
-//        T_REC.join();
-//    }
-//    if(T_PROC.joinable()){
-//        T_PROC.join();
-//    }
 
 
-    ///\note
-    /// cv:imshow functions need to be run from same thread - otherwise opencv hangs
-    if (pthread_create(&tidDisplay, NULL, &ReadImageSeq, (void *)&ReaderFnArgs) != 0) {
+    struct observer_thread_data ReaderFnArgs;
+    ReaderFnArgs.mode           = 0; //How to Save File Mode
+    ReaderFnArgs.proc_folder    = soutFolder;
+    ReaderFnArgs.prefix0        = fixedLengthString(1,3);
+    ReaderFnArgs.windisplay     = RSC_input_camA.display;
+    ReaderFnArgs.format         = ZR_OUTPICFORMAT;
+    ReaderFnArgs.timeout        = uiTimeOutSec;
+    ReaderFnArgs.pcircbuffer = &circ_buffer_camA; //So to Trigger Dumping of event Antecedent frames
+
+    ///\note cv:imshow functions need to be run from same thread - otherwise opencv hangs
+    if (pthread_create(&tidDisplay, NULL, &camViewEventTrigger, (void *)&ReaderFnArgs) != 0) {
         printf("Oh Ohh... Thread for Camera Display ReadImageSeq could not start :( \n");
         camA.StopCapture();
         camA.Disconnect();

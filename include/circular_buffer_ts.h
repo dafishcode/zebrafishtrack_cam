@@ -16,6 +16,7 @@
 // Thread safe circular buffer
 
 using namespace std;
+/// \brief A rolling Buffer of images that allows to save antecedently save images following an event trigger
 //To prevent copying a class, you can very easily declare a private copy constructor / assignment operators. But you can also inherit boost::noncopyable.
 //: private boost::noncopyable
 class circular_buffer_ts: private boost::noncopyable
@@ -37,7 +38,7 @@ public:
         writing_buffer=false;
     }
 
-
+    // Add new Image to Buffer - Cannot not be done while Buffer is being dumped to disk
     void update_buffer(const cv::Mat &imdata, int f, int64 t) {
         slock lk(monitor);
         if(!writing_buffer){
@@ -101,6 +102,7 @@ public:
         return writing_buffer;
     }
 
+    // Dumps Buffer Contents To Disk - while it lock adding any new contents to it
     // This action can only be done by the processor thread so it does not need to be thread safe.
     void write_buffer(){
 

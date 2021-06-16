@@ -29,7 +29,7 @@ extern sem_t semImgFishDetected; //There is a fish In the scene lock
 extern pthread_cond_t cond;
 extern pthread_mutex_t lock;
 extern bool bImgCaptured;/// Global Flag indicating new Image Has been captured by camera
-extern bool gbrecording; //Glag That Images Are being saved
+extern bool gbEventRecording; //Glag That Images Are being saved
 extern bool gbtimeoutreached; //Glag That Images Are being saved
 
 class ioparam {
@@ -50,10 +50,11 @@ class F7 {
 };
 
 ///Used for Image Display And Processing function
-struct thread_data{
+struct observer_thread_data{
     string prefix;
     string proc_folder;
     string windisplay;
+    circular_buffer_ts* pcircbuffer; // pointer to Circular Buffer Used in Recording Thread
     int mode;
     char* format;
     string prefix0;
@@ -62,16 +63,16 @@ struct thread_data{
 };
 
 ///Used for Image Capture
-struct thread_data2{
+struct camera_thread_data{
 	Camera *cam;
     string proc_folder;
+    circular_buffer_ts* pcircbuffer;  // pointer to Circular Buffer where to store all camera frames retrieved
     int eventCount; ///Number of Times Fish Has been cited/ Prey cApture events
     uint eventtimeout; //Min n of frames an event recording should last
     string display;
     size_t seq_size;
     uint MaxFrameDuration;
     bool crop;
-
 };
 
 
@@ -84,11 +85,12 @@ inline void PrintError(Error error) { error.PrintErrorTrace(); }
 void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);
 void PrintCameraInfo(CameraInfo *pCamInfo);
-int Rec_SingleCamera(void*);
-void *Rec_onDisk_SingleCamera2(void *tdata);
-void *ReadImageSeq(void *tdata);
-int Run_SingleCamera(PGRGuid);
 
-void* Rec_onDisk_TopCamera(circular_buffer_ts &circ_buffer,thread_data2 &RSC_input); //Low FPS Top Camera Thread
+void *rec_onDisk_BottomCamera(void *tdata); //High FPS Event |Triggered
+void* rec_onDisk_TopCamera(camera_thread_data &RSC_input); //Low FPS Top Camera Thread
+
+void *camViewEventTrigger(void *tdata);
+//int Run_SingleCamera(PGRGuid);
+//int Rec_SingleCamera(void*);
 
 #endif
