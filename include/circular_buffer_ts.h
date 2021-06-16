@@ -95,6 +95,11 @@ public:
         writing_buffer = br;
     }
 
+    void set_outputfolder(string sdir)
+    {   slock lk(monitor);
+        proc_folder = sdir;
+    }
+
     bool get_recorder_state(){
         slock lk(monitor);
         return recording_state;
@@ -124,6 +129,8 @@ public:
         for(i=0;i<cb.size();i++){
             if(frame_index[i]>lri){
                 stringstream filename;
+
+
                 filename << proc_folder<<"/" << fixedLengthString((int)frame_index[i],10) << ".pgm";
                 cv::imwrite(filename.str().c_str(),cb[i]);
                 *logfile<<time_index[i]<<' '<<cv::getTickFrequency()<<' '<<1<<endl;

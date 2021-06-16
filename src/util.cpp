@@ -431,8 +431,8 @@ void* rec_onDisk_BottomCamera(void *tdata)
     char buff[32]; //For Time Stamp
     struct tm *sTm;
     unsigned int nfrmCamA           = 0;
-    double ms0                      = cv::getTickCount();
-    double ms1                      = 0;
+    int64 ms0                      = cv::getTickCount();
+    int64 ms1                      = 0;
     double dmFps                    = 0.0;
 
     signal(SIGINT,my_handler);
@@ -456,7 +456,7 @@ void* rec_onDisk_BottomCamera(void *tdata)
     stringstream logfilename;
     logfilename	<< RSC_input->proc_folder <<"/logfile_camA.csv";
     ofstream logfile(logfilename.str().c_str());
-    logfile << "eventNumber" <<'\t'<< "FrameN" << "clock_time" << '\t' <<"cpu_Dt_ms" << '\t' << "cpu_ms"  << "\t" << "camts_microsec"  << std:: endl;
+    logfile << "eventNumber" <<'\t'<< "FrameN" << "clock_time" << '\t' <<"cpu_Dt_ms" << '\t' << "CPU_ticks"  << "\t" << "camts_microsec"  << std:: endl;
 //	if(RSC_input->crop){
 //		Select_ROI(RSC_input->cam, center , brecording);
 //        if(!brecording){
@@ -468,6 +468,7 @@ void* rec_onDisk_BottomCamera(void *tdata)
 		
 
     string outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3) ;
+    RSC_input->pcircbuffer->set_outputfolder(outfolder);
 
     cout<<"RECORDING..."<<endl;
 
@@ -520,8 +521,8 @@ void* rec_onDisk_BottomCamera(void *tdata)
 
             ///LOG: Append Frame Timing To Event Logfile
             // CPU Tick Time
-            ms1 = (double)cv::getTickCount();
-            double delta = (ms1-ms0)/cv::getTickFrequency();
+            ms1 =  cv::getTickCount();
+            double delta = (double)(ms1-ms0)/cv::getTickFrequency();
             ms0 = ms1;
             //Get Timestamp
 
