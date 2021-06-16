@@ -55,6 +55,9 @@ public:
     void retrieve_last(cv::Mat &image, long int &cf) {
         slock lk(monitor);
 
+        if (frame_index.size() == 0)
+            return; //No Images Exist
+
         if(verbose)
             cout<<"retrieve frame: "<<frame_index.back()<<' '<<time_index.back()<<endl;
         

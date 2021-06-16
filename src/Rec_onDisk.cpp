@@ -248,7 +248,7 @@ int main(int argc, char** argv)
     struct camera_thread_data RSC_input_camA;
     RSC_input_camA.cam               = &camA;
     RSC_input_camA.proc_folder       = soutFolder + "/camA/";
-    RSC_input_camA.display           = string(ZR_WINDOWNAME);
+    RSC_input_camA.display           = string("Bottom display (camA)");
     RSC_input_camA.crop              = iCrop;
     RSC_input_camA.MaxFrameDuration =  fFrameRateA*uiduration; //Calc Max Frames given camera FPS
     RSC_input_camA.eventtimeout     =  (uint)(uiEventMinDuration*fFrameRateA); //min duration of an event in frames
@@ -289,21 +289,19 @@ int main(int argc, char** argv)
     CreateOutputFolder(soutFolder + "/camB/");
     //Setup thread Constantly On Cam B
     struct camera_thread_data RSC_input_camB;
-    RSC_input_camB.cam               = &camA;
+    RSC_input_camB.cam               = &camB;
     RSC_input_camB.proc_folder       = soutFolder + "/camB/";
-    RSC_input_camB.display           = string("camB display");
+    RSC_input_camB.display           = string("Top display (camB)");
     RSC_input_camB.crop              = iCrop;
     RSC_input_camB.MaxFrameDuration =  fFrameRateB*uiTimeOutSec; //Calc Max Frames given camera FPS
     RSC_input_camB.eventtimeout     =  (uint)(uiTimeOutSec*fFrameRateB); //min duration of an event in frames
     RSC_input_camB.eventCount       = 0;//CAm B creates 1 event
-    RSC_input_camB.pcircbuffer       = NULL; //No Circ Buffer Required
+
+    circular_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile);
+    RSC_input_camB.pcircbuffer = &circ_buffer_camB;
 
     /// Start Top Camera Recording Thread / BOOST Thread Version
     boost::thread T_REC(rec_onDisk_TopCamera, boost::ref(RSC_input_camB) ) ;
-
-    if(T_REC.joinable()){
-        T_REC.join();
-    }
 
 
     struct observer_thread_data ReaderFnArgs;
@@ -313,7 +311,8 @@ int main(int argc, char** argv)
     ReaderFnArgs.windisplay     = RSC_input_camA.display;
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
     ReaderFnArgs.timeout        = uiTimeOutSec;
-    ReaderFnArgs.pcircbuffer = &circ_buffer_camA; //So to Trigger Dumping of event Antecedent frames
+    ReaderFnArgs.pcircbufferA = &circ_buffer_camA; //So to Trigger Dumping of event Antecedent frames
+    ReaderFnArgs.pcircbufferB = &circ_buffer_camB; //So to Trigger Dumping of event Antecedent frames
 
     ///\note cv:imshow functions need to be run from same thread - otherwise opencv hangs
     if (pthread_create(&tidDisplay, NULL, &camViewEventTrigger, (void *)&ReaderFnArgs) != 0) {
@@ -323,10 +322,15 @@ int main(int argc, char** argv)
         return -1;
     }
 
-
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
     pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
+
+    if(T_REC.joinable()){
+        T_REC.join();
+    }
+
+
     //pthread_kill(tidRec,SIGTERM); //Stop The recording Thread
 //    char c = 0;
     //Set TimeOut

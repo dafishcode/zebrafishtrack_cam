@@ -54,7 +54,8 @@ struct observer_thread_data{
     string prefix;
     string proc_folder;
     string windisplay;
-    circular_buffer_ts* pcircbuffer; // pointer to Circular Buffer Used in Recording Thread
+    circular_buffer_ts* pcircbufferA; // pointer to Circular Buffer Used in Recording Thread camA
+    circular_buffer_ts* pcircbufferB; // pointer to Circular Buffer Used in Recording Thread camB
     int mode;
     char* format;
     string prefix0;
