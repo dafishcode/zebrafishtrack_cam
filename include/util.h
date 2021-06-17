@@ -19,6 +19,7 @@
 #define ZR_OUTPICFORMAT  ".pgm"
 #define ZR_WINDOWNAME     "display"
 #define ZR_FISHTIMEOUT    60 //sec of min time recording
+#define TEMPLATE_COL_SEARCH_REGION  15 //Optimization How Far to Search Along Col in the Cache From the Starting POint
 using namespace std;
 using namespace FlyCapture2;
 
