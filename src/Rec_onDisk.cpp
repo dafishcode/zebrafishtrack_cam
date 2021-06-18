@@ -96,7 +96,7 @@ int main(int argc, char** argv)
 
     pthread_t tidDisplay,tidRec; //Recorder And Monitor/Display Thread
 
-    int BUFFER_SIZE=200; //Circular Buffer
+    int BUFFER_SIZE=100; //Circular Buffer
 
     //int i = 0;
     Error error;
@@ -256,7 +256,7 @@ int main(int argc, char** argv)
 
     // Frames recorded when writing the buffer are specified in bufferfile
     stringstream bufferfilename;
-    bufferfilename << RSC_input_camA.proc_folder << "camA/buffer.log";
+    bufferfilename << RSC_input_camA.proc_folder << "/../circ_buffer_camA.log";
     ofstream bufferfile(bufferfilename.str().c_str());
 
     // thread-safe circular buffer CAM A allows saving a Number of images prior to an Event being Triggered

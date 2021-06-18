@@ -133,8 +133,8 @@ public:
 
                 filename << proc_folder<<"/" << fixedLengthString((int)frame_index[i],10) << ".pgm";
                 cv::imwrite(filename.str().c_str(),cb[i]);
-                *logfile<<time_index[i]<<' '<<cv::getTickFrequency()<<' '<<1<<endl;
-                if(verbose) cout<<"write buffer: "<<' '<<frame_index[i]<<' '<<time_index[i]<<endl;
+                *logfile << frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
+                if(verbose) cout<<"write buffer: "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
             }
         }
 

@@ -361,7 +361,7 @@ void* rec_onDisk_TopCamera(camera_thread_data &RSC_input)
     unsigned char* data;
 
     stringstream logfilename;
-    logfilename	<< RSC_input.proc_folder<<"/time_camB.log";
+    logfilename	<< RSC_input.proc_folder<<"/../time_camB.log";
     ofstream logfile(logfilename.str().c_str());
     logfile << "Frame" << '\t' << "clock_time" << '\t' << "CPU_ticks" <<'\t'<< "camts_microsec" << endl;
     Image rawImage;
@@ -454,7 +454,7 @@ void* rec_onDisk_BottomCamera(void *tdata)
     ioparam tmp_center;
     
     stringstream logfilename;
-    logfilename	<< RSC_input->proc_folder <<"/logfile_camA.csv";
+    logfilename	<< RSC_input->proc_folder <<"/../logfile_camA.log";
     ofstream logfile(logfilename.str().c_str());
     logfile << "eventNumber" <<'\t'<< "FrameN" << "clock_time" << '\t' <<"cpu_Dt_ms" << '\t' << "CPU_ticks"  << "\t" << "camts_microsec"  << std:: endl;
 //	if(RSC_input->crop){
@@ -667,7 +667,7 @@ void *camViewEventTrigger(void* tdata){
 
     // Filter by Area.
     params.filterByArea = true;
-    params.minArea = 120;
+    params.minArea = 200;
     params.maxArea = 1200;
 
     /////An inertia ratio of 0 will yield elongated blobs (closer to lines)
