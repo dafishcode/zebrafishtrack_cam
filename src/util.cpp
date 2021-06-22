@@ -10,10 +10,13 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <limits.h>
-#include <opencv2/imgproc.hpp>
+
+#include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
 #include <opencv2/features2d.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <FlyCapture2.h>
 #include <Utilities.h>
@@ -301,47 +304,47 @@ void CreateOutputFolder(string folder){
     }
 }
 
-void Select_ROI(Camera *cam, ioparam &center, bool &recording){
+//void Select_ROI(Camera *cam, ioparam &center, bool &recording){
 
-    Image rawImage;
-    cv::Mat tmp_image;
-    cv::namedWindow(ZR_WINDOWNAME,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
-    cv::resizeWindow(ZR_WINDOWNAME, 800,800);
+//    Image rawImage;
+//    cv::Mat tmp_image;
+//    cv::namedWindow(ZR_WINDOWNAME,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+//    cv::resizeWindow(ZR_WINDOWNAME, 800,800);
 
-    // Retrieve a single image
-    cam->RetrieveBuffer(&rawImage);
+//    // Retrieve a single image
+//    cam->RetrieveBuffer(&rawImage);
 
-    unsigned char* data = rawImage.GetData();
-    cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+//    unsigned char* data = rawImage.GetData();
+//    cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
     
-    char key='a';
-    ioparam tmp_center;
-    tmp_center.status=0;
-    cv::setMouseCallback(ZR_WINDOWNAME,on_mouse,&tmp_center);
-    string yn;
-    cv::Mat drawing;
-    cvm.copyTo(drawing);
+//    char key='a';
+//    ioparam tmp_center;
+//    tmp_center.status=0;
+//    cv::setMouseCallback(ZR_WINDOWNAME,on_mouse,&tmp_center);
+//    string yn;
+//    cv::Mat drawing;
+//    cvm.copyTo(drawing);
     
-    while(key!='q'){
-		if(tmp_center.status){
-			cvm.copyTo(drawing);
-			cv::rectangle(drawing,tmp_center.pt1,tmp_center.pt2,0,4,8,0);
-			ostringstream info;
-            info<<"center = (" << tmp_center.center.x <<',' <<tmp_center.center.y << ")";
-            cv::imshow(ZR_WINDOWNAME,drawing);
-            cv::displayStatusBar(ZR_WINDOWNAME,info.str(),0);
-			center=tmp_center;
-        } else cv::imshow(ZR_WINDOWNAME,drawing);
+//    while(key!='q'){
+//		if(tmp_center.status){
+//			cvm.copyTo(drawing);
+//			cv::rectangle(drawing,tmp_center.pt1,tmp_center.pt2,0,4,8,0);
+//			ostringstream info;
+//            info<<"center = (" << tmp_center.center.x <<',' <<tmp_center.center.y << ")";
+//            cv::imshow(ZR_WINDOWNAME,drawing);
+//            cv::displayStatusBar(ZR_WINDOWNAME,info.str(),0);
+//			center=tmp_center;
+//        } else cv::imshow(ZR_WINDOWNAME,drawing);
 
-	    key=cv::waitKey(10); 
-		if(key=='r'){
-            recording=true;
-		    break;
-	    }
-    }
+//	    key=cv::waitKey(10);
+//		if(key=='r'){
+//            recording=true;
+//		    break;
+//	    }
+//    }
 
-    cv::destroyWindow(ZR_WINDOWNAME);
-}
+//    cv::destroyWindow(ZR_WINDOWNAME);
+//}
 
 /// Extension to Dual Camera - That uses Circular Bufffer
 void* rec_onDisk_TopCamera(camera_thread_data &RSC_input)
@@ -385,7 +388,8 @@ void* rec_onDisk_TopCamera(camera_thread_data &RSC_input)
 
         stringstream filename;
         filename<<RSC_input.proc_folder<<"/"<<fixedLengthString(nfrmCamB)<<".pgm";
-        cv::imwrite(filename.str().c_str(),image);
+        cv::imwrite((cv::String)filename.str().c_str(),image);
+
         //Add To CircBuffer
         RSC_input.pcircbuffer->update_buffer(image,nfrmCamB,TimeStamp_fromCamera.microSeconds);
 

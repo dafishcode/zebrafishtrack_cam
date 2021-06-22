@@ -17,13 +17,15 @@ SOURCES = \
     src/aux.cpp
 
 
-
 INCLUDEPATH = \
     $$PWD/include \
     /usr/include/flycapture
 
+INCLUDEPATH += `pkg-config --cflags opencv`
 
-LIBS = `pkg-config --libs opencv`
-LIBS += -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system
+LIBS = -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system
+LIBS += `pkg-config --libs opencv`
+
+
 #DEFINES = 
 

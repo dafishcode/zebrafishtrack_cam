@@ -37,12 +37,14 @@
 #include <signal.h>
 #include <functional>
 
+
 using namespace std;
 using namespace FlyCapture2;
 
 
 cv::Mat gframeBuffer; //Global Image Buffer For display
 cv::Mat gframeMask;
+
 sem_t   semImgCapCount;////Semaphore for image Captured Signal
 sem_t   semImgFishDetected;////Semaphore for Fish Detected
 pthread_cond_t cond;
@@ -115,7 +117,7 @@ int main(int argc, char** argv)
     /// Handle Command Line Parameters //
     const cv::String keys =
         "{help h usage ? |      | print this help  message   }"
-        "{@outputDir     |<none>| Dir where To save sequence of images }"
+        "{outputDir     |<none>| Dir where To save sequence of images }"
         "{@crop          | 0    | ROI to crop images before save       }"
         "{camAmode Am      |1     | Mode 1 is low Res high FPS}"
         "{camBmode Bm      |0     | Mode 1 is low Res high FPS}"
@@ -167,7 +169,7 @@ int main(int argc, char** argv)
 
     int iCrop           = parser.get<int>("@crop");
     uint uiduration     = parser.get<uint>("eventtimeout");
-    string soutFolder   = parser.get<string>("@outputDir");
+    string soutFolder   = parser.get<string>("outputDir");
     bool use_time_stamp = parser.has("timestamp");
     uint uiTimeOutSec   = parser.get<uint>("timeout");
     uint uiEventMinDuration = parser.get<uint>("mineventduration");
