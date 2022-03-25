@@ -51,48 +51,6 @@ pthread_cond_t cond;
 pthread_mutex_t lock    = PTHREAD_MUTEX_INITIALIZER;
 bool bImgCaptured       = false;/// Global Flag indicating new Image Has been captured by camera
 
-// Attempts to connect to Camera And Check If Cam supports A particular MODE
-int connectCam(BusManager& busMgr,Camera& cam,int camIDX,Format7Info& fmt7Info)
-{
-    PGRGuid guid;
-    Error error;
-
-    error = busMgr.GetCameraFromIndex(camIDX, &guid);
-    if (error != PGRERROR_OK)
-    {
-        PrintError(error);
-        return -1;
-    }
-     std::cout << "Got camera idx "<< camIDX << " Guid " << guid.value <<  std::endl;
-
-
-
-     ///Connect to Camera - Set it to derired MODE and FPS and Shutter///
-     error = cam.Connect(&guid);
-     if (error != PGRERROR_OK)
-    {
-        cam.Disconnect();
-        PrintError(error);
-        return -1;
-    }
-     std::cout << "Connected To cam guid:" << guid.value <<  std::endl;
-
-     ///Format 7 Is the Non IEEE compliant formats that the camera supports
-
-     bool supported;
-
-
-     error = cam.GetFormat7Info(&fmt7Info, &supported);
-     if (error != PGRERROR_OK)
-     {
-          PrintError(error);
-          return -1;
-     }
-     PrintFormat7Capabilities(fmt7Info);
-
-     return 1;
-} //End oF Connnect to Cam
-
 int main(int argc, char** argv)
 {
 
@@ -371,3 +329,5 @@ int main(int argc, char** argv)
 
     return 0;
 }
+
+

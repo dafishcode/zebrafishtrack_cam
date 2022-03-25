@@ -81,6 +81,7 @@ void my_handler(int);
 
 void CreateOutputFolder(string folder);
 void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7PixFmt, float& pfFrameRate,float& pfShutter);
+int connectCam(BusManager& busMgr,Camera& cam,int camIDX,Format7Info& fmt7Info);
 
 inline void PrintError(Error error) { error.PrintErrorTrace(); }
 void PrintBuildInfo();
