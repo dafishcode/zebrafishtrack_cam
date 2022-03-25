@@ -125,8 +125,8 @@ int main(int argc, char** argv)
         "{camBfps  Bf       | 40.0| Camera capture fps and output video fps}"
         "{camAshutter As       | 3.0  | Camera shutter speed - set to 3ms }"
         "{camBshutter Bs       | 3.0  | Camera shutter speed - set to 3ms }"
-        "{camAIdx Cid    |1     | Flycap Idx identifying camera that will be the main event triggered camera (choose Bottom camera)}"
-        "{camBIdx Cid    |0     | Flycap Idx to identify the camera hardware (choose idx of top camera)}"
+        "{camAIdx Cid    |0     | Flycap Idx identifying camera that will be the main event triggered camera (choose Bottom camera)}"
+        "{camBIdx Cid    |1     | Flycap Idx to identify the camera hardware (choose idx of top camera)}"
         "{eventtimeout e |240   | Max event recording duration, new event is created after timeout }"
         "{timeout t      |600   | Max recording time in seconds, stops the recording process (= 10 mins)  }"
         "{mineventduration d |30 | min duration (sec) of event once recording is triggered on CamA (1st event is autotriggered) }"
@@ -219,7 +219,12 @@ int main(int argc, char** argv)
                cout << "Pixel format is not supported" << endl;
                return -1;
            }
-    } //If COnnect To CAmA
+        //If COnnect To CAmA
+      }  else {
+            cerr << " Failed to connect to camera" << std::endl;
+             exit(-1);
+      }
+
 
      //Connect to 2nd Cam If Exists
      if (numCameras > 1)
@@ -233,8 +238,11 @@ int main(int argc, char** argv)
            camA.GetVideoModeAndFrameRate(&cVidModB,&cFpsB);
            std::cout << "IDX:1 Current Camera Video Mode ////" << std::endl;
            std::cout << "Vid Mode :" << cVidModB << " Fps Mode Set: " << cFpsB << std::endl;
-
-       } // If COnnected to Cam B
+        // If COnnected to Cam B
+       } else {
+          cerr << " Failed to connect to camera" << std::endl;
+           exit(-1);
+       }
 
      }
 

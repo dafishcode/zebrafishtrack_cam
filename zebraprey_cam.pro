@@ -12,7 +12,7 @@ HEADERS = \
 
 SOURCES = \
    $$PWD/src/util.cpp \
-   $$PWD/src/Rec_onDisk.cpp \
+   $$PWD/src/main.cpp \
     src/arduino-serial-lib.c \
     src/aux.cpp
 
