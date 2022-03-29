@@ -517,7 +517,7 @@ void* rec_onDisk_camA(void *tdata)
     stringstream logfilename;
     logfilename	<< RSC_input->proc_folder <<"/../logfile_camA.log";
     ofstream logfile(logfilename.str().c_str());
-    logfile << "eventNumber" <<'\t'<< "FrameN" << "clock_time" << '\t' <<"cpu_Dt_ms" << '\t' << "CPU_ticks"  << "\t" << "camts_microsec"  << std:: endl;
+    logfile << "eventNumber" << '\t' << "FrameN" << '\t'<< "clock_time" << '\t' <<"cpu_Dt_ms" << '\t' << "CPU_ticks"  << "\t" << "camts_microsec"  << std:: endl;
 //	if(RSC_input->crop){
 //		Select_ROI(RSC_input->cam, center , brecording);
 //        if(!brecording){

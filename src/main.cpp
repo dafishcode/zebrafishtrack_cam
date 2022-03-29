@@ -235,7 +235,7 @@ int main(int argc, char** argv)
          pVideoWriter = new cv::VideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
     }else{
         stroutputfile = stroutputfile.append("/camA/img_%07d.bmp");
-        pVideoWriter = new cv::VideoWriter(stroutputfile, CV_FOURCC('M','J','P','G'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
+        pVideoWriter = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024,1024), false); //initialize the VideoWriter object
       }
 
 
