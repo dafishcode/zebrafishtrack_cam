@@ -83,7 +83,7 @@ int main(int argc, char** argv)
         "{@crop             | 0    | ROI to crop images before save       }"
         "{camAmode Am       |1     | Mode 1 is low Res high FPS}"
         "{camBmode Bm       |0     | Mode 1 is low Res high FPS}"
-        "{camAfps  Af       | 450.0| Camera capture fps and output video fps}"
+        "{camAfps  Af       | 40.0| Camera capture fps and output video fps}"
         "{camBfps  Bf       | 40.0 | Camera capture fps and output video fps}"
         "{camAshutter As    | 3.0  | Camera shutter speed - set to 3ms }"
         "{camBshutter Bs    | 3.0   | Camera shutter speed - set to 3ms }"
@@ -319,12 +319,13 @@ int main(int argc, char** argv)
     }
 
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
+
+    if(T_REC_B.joinable()) //Cam B
+        T_REC_B.join();
+
+
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
     pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
-
-    if(T_REC_B.joinable()){
-        T_REC_B.join();
-    }
 
 
     //pthread_kill(tidRec,SIGTERM); //Stop The recording Thread
