@@ -72,7 +72,7 @@ struct camera_thread_data{
     uint eventtimeout; //Min n of frames an event recording should last
     string display;
     size_t seq_size;
-    uint MaxFrameDuration;
+    uint MaxEventFrames;
     bool crop;
 };
 
@@ -88,8 +88,8 @@ void PrintBuildInfo();
 void PrintFormat7Capabilities(Format7Info fmt7Info);
 void PrintCameraInfo(CameraInfo *pCamInfo);
 
-void *rec_onDisk_BottomCamera(void *tdata); //High FPS Event |Triggered
-void* rec_onDisk_TopCamera(camera_thread_data &RSC_input); //Low FPS Top Camera Thread
+void *rec_onDisk_camA(void *tdata); //High FPS Event |Triggered
+void* rec_onDisk_camB(camera_thread_data &RSC_input); //Low FPS Top Camera Thread
 
 void *camViewEventTrigger(void *tdata);
 //int Run_SingleCamera(PGRGuid);

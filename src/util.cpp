@@ -193,6 +193,8 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
     }
 	PrintFormat7Capabilities(f7.fmt7Info);
 
+    // Check If Cropping to smaller Square Frame //
+
     f7.fmt7ImageSettings.mode = k_fmt7Mode;
     f7.fmt7ImageSettings.offsetX = 0;
     f7.fmt7ImageSettings.offsetY = 0;
@@ -334,8 +336,10 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
     std::cout << " Camera Shutter set " << fixed  << propShutter.absValue  << " ms" << std::endl;
 }
 
+// Make Directory
 void CreateOutputFolder(string folder){
     struct stat sb;
+
     if (stat(folder.c_str(), &sb) != 0){
         const int dir_err = mkdir(folder.c_str(),0777);
         if ( dir_err == -1){
@@ -390,7 +394,7 @@ void CreateOutputFolder(string folder){
 //}
 
 /// Extension to Dual Camera - That uses Circular Bufffer
-void* rec_onDisk_TopCamera(camera_thread_data &RSC_input)
+void* rec_onDisk_camB(camera_thread_data &RSC_input)
 {
     char tbuff [30];
     struct tm *sTm;
@@ -424,7 +428,13 @@ void* rec_onDisk_TopCamera(camera_thread_data &RSC_input)
         strftime (tbuff, sizeof(tbuff), "%H:%M:%S", sTm);
 
         data = rawImage.GetData();
+        if (rawImage.GetRows() == 0){
+            cerr << "empty image retrieved from camera" << std::endl;
+            continue;
+        }
         cv::Mat cvm (rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
+        //  Alternativelly can copy data into existing cv img instance:
+        // memcpy( img->imageData, rawImage.GetData(), data_size );
 
         //Crop Sides
         cv::Mat image = cvm(cv::Range(0,cvm.rows),cv::Range(65 ,cvm.cols-65));
@@ -450,7 +460,7 @@ void* rec_onDisk_TopCamera(camera_thread_data &RSC_input)
         //mtx.unlock();
 
         // Normally gbtimeoutreached will signal end - Here is an additional internal Stop Condition Based on estimated total Frame count
-        if((cv::getTickCount()-initial_time)/1e9>RSC_input.eventtimeout){
+        if((cv::getTickCount()-initial_time)/1e9 > RSC_input.eventtimeout){
             mtx.lock();
             run=false;
             mtx.unlock();
@@ -468,12 +478,16 @@ void* rec_onDisk_TopCamera(camera_thread_data &RSC_input)
     mtx.lock();
     cout<<"Camera B disconnected."<<endl;
     mtx.unlock();
+
+    pthread_exit(EXIT_SUCCESS);
 }
+
+
 
 /// \brief Rec_onDisk_SingleCamera2 Captures images from Camera And Saves them to disk
 /// Signals Display Function Using Semaphor
 ///  Called by Recording Thread To begin Camera Capture
-void* rec_onDisk_BottomCamera(void *tdata)
+void* rec_onDisk_camA(void *tdata)
 {
     char buff[32]; //For Time Stamp
     struct tm *sTm;
@@ -486,7 +500,7 @@ void* rec_onDisk_BottomCamera(void *tdata)
     struct camera_thread_data * RSC_input; //Get Thread Parameters
     RSC_input =  (struct camera_thread_data *)tdata; //Cast To CXorrect pointer Type
 
-    unsigned int cMaxFrames = RSC_input->MaxFrameDuration;
+    unsigned int cMaxFrames = RSC_input->MaxEventFrames;
     int fishTimeout         = RSC_input->eventtimeout;
 
     Error error;  
@@ -534,6 +548,7 @@ void* rec_onDisk_BottomCamera(void *tdata)
         cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
 
         //circ_buffer.update_buffer(image,frame_counter,ms1);
+        // All Frames Passed to circ buffer
         RSC_input->pcircbuffer->update_buffer(cvm,nfrmCamA,tsmp_cam.microSeconds);
 
         //If Consumer Thread Has Consumed this Image
@@ -541,7 +556,6 @@ void* rec_onDisk_BottomCamera(void *tdata)
         sem_getvalue(&semImgCapCount, &value);
         if (value == 0) //If Last Image Has been displayed
         {
-
             //Clone To Global Variable
             cvm.copyTo(gframeBuffer); //gframeMask
             sem_post(&semImgCapCount); //Notify / Increment Image Count
@@ -589,6 +603,7 @@ void* rec_onDisk_BottomCamera(void *tdata)
             //sprintf(buff,"%d",tsmp_cam.cycleCount);
             //cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-8),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
 
+
             cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
             nfrmCamA++;
 
@@ -596,12 +611,11 @@ void* rec_onDisk_BottomCamera(void *tdata)
         }
 
 
-        ///Check Limits
-        if ((UINT_MAX == nfrmCamA || nfrmCamA == cMaxFrames) && gbEventRecording ) //Full
-        {   std::cerr << "limit Of Event Period Reached / End Recording of this event.";
+        // Check Limits (Integer limits and maximum event duration limits)
+        if (UINT_MAX == nfrmCamA || (nfrmCamA == cMaxFrames && gbEventRecording ) )
+        {   std::cerr << "Limit Of Event Period Reached / End Recording of this event.";
             gbEventRecording = false;
             std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (nfrmCamA+1)) << std::endl;
-
         }
 
         //FISH in ROI Event - Read in If Recording Needs to End
@@ -849,7 +863,7 @@ void *camViewEventTrigger(void* tdata){
         {
             //Thbis Should Initiate Recording
             sem_post(&semImgFishDetected);
-            Reader_input->pcircbufferA->write_buffer(); //Save recent Frames preceding Trigger
+            Reader_input->pcircbufferA->writeNewFramesToImageSequence(); //Save recent Frames preceding Trigger
         }
 
         //The semaphore will be decremented if its value is greater than zero. If the value of the semaphore is zero, then sem_trywait() will return -1 and set errno to EAGAIN

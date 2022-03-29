@@ -28,10 +28,10 @@ public:
     circular_buffer_ts() {}
 
     circular_buffer_ts(int n, string pf,ofstream* lf) {
-        cb.set_capacity(n);
+        circ_buff_img.set_capacity(n);
         frame_index.set_capacity(n);
         time_index.set_capacity(n);
-        last_recorded_index=0;
+        idx_last_recorded=0;
         proc_folder=pf;
         logfile=lf;
         recording_state=false;
@@ -45,14 +45,14 @@ public:
             //cv::Mat im;
             //imdata.copyTo(im);
             if(verbose) std::cout<<"update buffer: "<<f<<' '<<t<<endl;
-            cb.push_back(imdata.clone());
+            circ_buff_img.push_back(imdata.clone());
             frame_index.push_back(f);
             time_index.push_back(t);
             buffer_not_empty.notify_one();
         }
     }
 
-    void retrieve_last(cv::Mat &image, long int &cf) {
+    void retrieve_last(cv::Mat &image, long int &lastframeIdx) {
         slock lk(monitor);
 
         if (frame_index.size() == 0)
@@ -61,23 +61,23 @@ public:
         if(verbose)
             cout<<"retrieve frame: "<<frame_index.back()<<' '<<time_index.back()<<endl;
         
-        cb.back().copyTo(image);
-        cf=frame_index.back();
+        circ_buff_img.back().copyTo(image);
+        lastframeIdx=frame_index.back();
     }
 
     void clear() {
         slock lk(monitor);
-        cb.clear();
+        circ_buff_img.clear();
     }
 
     int size() {
         slock lk(monitor);
-        return cb.size();
+        return circ_buff_img.size();
     }
 
     void set_capacity(int capacity) {
         slock lk(monitor);
-        cb.set_capacity(capacity);
+        circ_buff_img.set_capacity(capacity);
     }
 
     void set_recorder_state(bool rs){
@@ -87,7 +87,7 @@ public:
 
     void set_last_recorded_index(long int f){
         slock lk(monitor);
-        last_recorded_index=f;
+        idx_last_recorded=f;
     }
 
     void set_writing_buffer(bool br){
@@ -110,9 +110,9 @@ public:
         return writing_buffer;
     }
 
-    // Dumps Buffer Contents To Disk - while it lock adding any new contents to it
+    // Dumps unexported part of Buffer To Disk - while it lock adding any new contents to it
     // This action can only be done by the processor thread so it does not need to be thread safe.
-    void write_buffer(){
+    void writeNewFramesToImageSequence(){
 
 
         unsigned int i=0;
@@ -122,17 +122,17 @@ public:
         {
             slock lk(monitor);
             writing_buffer=true;
-            lri=last_recorded_index;
+            lri=idx_last_recorded;
             cout<<"writing whole buffer"<<endl;
         }
 
-        for(i=0;i<cb.size();i++){
+        for(i=0;i<circ_buff_img.size();i++){
             if(frame_index[i]>lri){
+                // Writing to file
                 stringstream filename;
 
-
                 filename << proc_folder<<"/" << fixedLengthString((int)frame_index[i],10) << ".pgm";
-                cv::imwrite(filename.str().c_str(),cb[i]);
+                cv::imwrite(filename.str().c_str(),circ_buff_img[i]);
                 *logfile << frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
                 if(verbose) cout<<"write buffer: "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
             }
@@ -141,7 +141,49 @@ public:
         // update last recorded index and turn off writing_buffer
         {
             slock lk(monitor);
-            last_recorded_index=frame_index[i-1];
+            idx_last_recorded=frame_index[i-1];
+            writing_buffer=false;
+        }
+    }
+
+    // Dumps unexported part of Buffer Contents To Disk - while it lock adding any new contents to it
+    // This action can only be done by the processor thread so it does not need to be thread safe.
+    // Only exports frames that have not been saved yet
+    void writeNewFramesToVideostream(cv::VideoWriter& vidWriter){
+
+        if ( !vidWriter.isOpened() ) //if not initialize the VideoWriter successfully, exit
+        {
+              cerr << "ERROR: Failed to write circular buffer to video" << endl;
+              return;
+        }
+
+        unsigned int i=0;
+        unsigned int lri;
+
+        // set writing_buffer, get last recorded index
+        {
+            slock lk(monitor);
+            writing_buffer=true;
+            lri=idx_last_recorded; //save idx of most recently exported/saved img to file
+            cout<<"writing whole buffer"<<endl;
+        }
+
+        for(i=0;i < circ_buff_img.size();i++){
+            if(frame_index[i] > lri){
+                // Writing to file
+                //cv::imwrite(filename.str().c_str(),);
+                vidWriter.write(circ_buff_img[i]);
+                *logfile << frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
+
+                if(verbose)
+                    cout<<"write buffer: "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
+            }
+        }
+
+        // update last recorded index and turn off writing_buffer
+        {
+            slock lk(monitor);
+            idx_last_recorded=frame_index[i-1];
             writing_buffer=false;
         }
     }
@@ -152,12 +194,12 @@ private:
     boost::condition buffer_not_empty;
     boost::condition buffer_ready;
     boost::mutex monitor;
-    boost::circular_buffer<cv::Mat> cb;
+    boost::circular_buffer<cv::Mat> circ_buff_img;
     boost::circular_buffer<int> frame_index;
     boost::circular_buffer<int64> time_index;
     bool recording_state;
     bool writing_buffer;
-    long int last_recorded_index;
+    long int idx_last_recorded;
 
     string proc_folder;
     ofstream* logfile;
