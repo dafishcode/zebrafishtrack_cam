@@ -430,7 +430,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
         data = rawImage.GetData();
         if (rawImage.GetRows() == 0){
             cerr << "empty image retrieved from camera" << std::endl;
-            continue;
+            break;
         }
         cv::Mat cvm (rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
         //  Alternativelly can copy data into existing cv img instance:

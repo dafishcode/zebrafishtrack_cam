@@ -214,6 +214,8 @@ int main(int argc, char** argv)
            exit(-1);
        }
 
+       // Make OutputFolder camB
+       CreateOutputFolder(soutFolder + "/camB/");
      }
 
     std::cout << "Will Record for a total of " << uimaxsessionduration_sec << "sec" << std::endl;
@@ -226,13 +228,16 @@ int main(int argc, char** argv)
     // Define the codec and create VideoWriter object
     //To save image sequence use a proper filename (eg. img_%02d.jpg) and fourcc=0 OR fps=0. Use uncompressed image format (eg. img_%02d.BMP) to save raw frames.
     //('M','J','P','G')
+    cv::VideoWriter* pVideoWriter;
     string stroutputfile = soutFolder;
-    if (ioutputType == 1)
+    if (ioutputType == 1){
          stroutputfile = stroutputfile.append("/camA/exp_video.avi");
-    else
+         pVideoWriter = new cv::VideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
+    }else{
         stroutputfile = stroutputfile.append("/camA/img_%07d.bmp");
+        pVideoWriter = new cv::VideoWriter(stroutputfile, CV_FOURCC('M','J','P','G'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
+      }
 
-    cv::VideoWriter oVideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
 
     //Got CAM1
     //Setup thread Event Triggered Cam A
@@ -266,19 +271,17 @@ int main(int argc, char** argv)
 
 
 //    //Start The Recording Thread - Continuous
-//    if (pthread_create(&tidRec, NULL, &rec_onDisk_camA, (void *)&RSC_input_camA) != 0) {
-//        printf("Oh Ohh... Thread for Camera recording Rec_onDisk_SingleCamera2 could not start :( \n");
-//        camA.StopCapture();
-//        camA.Disconnect();
-//        return -1;
-//    }
+   if (pthread_create(&tidRec, NULL, &rec_onDisk_camA, (void *)&RSC_input_camA) != 0) {
+        printf("Oh Ohh... Thread for Camera recording Rec_onDisk_SingleCamera2 could not start :( \n");
+        camA.StopCapture();
+        camA.Disconnect();
+        return -1;
+    }
     //cv::namedWindow(RSC_input.display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
     //cv::resizeWindow(RSC_input.display, fmt7Info.maxHeight,fmt7Info.maxWidth);
 
 
 
-    // Make OutputFolder camA
-    CreateOutputFolder(soutFolder + "/camB/");
     //Setup thread Constantly On Cam B
     struct camera_thread_data RSC_input_camB;
     RSC_input_camB.cam               = &camB;
@@ -316,8 +319,8 @@ int main(int argc, char** argv)
     }
 
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
-    //pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
-    //pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
+    pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
+    pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
 
     if(T_REC_B.joinable()){
         T_REC_B.join();
@@ -341,13 +344,12 @@ int main(int argc, char** argv)
 
     sem_destroy(&semImgCapCount);
     sem_destroy(&semImgFishDetected);
-
+    delete(pVideoWriter);
     std::cout <<  std::endl << "~~ Done ~~" << std::endl;
 
     std::exit(EXIT_SUCCESS);
     //cam.StopCapture();
    // cam.Disconnect();
-
 
 
 
