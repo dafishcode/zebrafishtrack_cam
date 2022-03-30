@@ -40,7 +40,7 @@ public:
     }
 
     // Add new Image to Buffer - Cannot not be done while Buffer is being dumped to disk
-    void update_buffer(const cv::Mat &imdata, uint f, string logentrystring) {
+    void update_buffer(const cv::Mat &imdata, uint f,uint t, string logentrystring) {
         slock lk(monitor);
         if(!writing_buffer){
             //cv::Mat im;
@@ -49,6 +49,8 @@ public:
             circ_buff_img.push_back(imdata.clone());
             frame_index.push_back(f);
             time_index.push_back(t);
+            logstring.push_back(logentrystring);
+
             buffer_not_empty.notify_one();
         }
     }
@@ -134,7 +136,7 @@ public:
 
                 filename << proc_folder<<"/" << fixedLengthString((int)frame_index[i],10) << ".pgm";
                 cv::imwrite(filename.str().c_str(),circ_buff_img[i]);
-                *logfile << frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
+                *logfile <<  logstring[i];// frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
                 if(verbose) cout<<"write buffer: "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
             }
         }
@@ -174,7 +176,7 @@ public:
                 // Writing to file
                 //cv::imwrite(filename.str().c_str(),);
                 pVideowriter->write(circ_buff_img[i]);
-                *logfile << frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
+                *logfile << logstring[i];//frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
 
                 if(verbose)
                     cout<<"write buffer: "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
@@ -198,7 +200,7 @@ private:
     boost::circular_buffer<cv::Mat> circ_buff_img;
     boost::circular_buffer<uint> frame_index;
     boost::circular_buffer<int64> time_index; //Camera Microseconds
-    boost::circular_buffer<string> time_index; //Camera Microseconds
+    boost::circular_buffer<string> logstring; //Camera Microseconds
 
     bool recording_state;
     bool writing_buffer;

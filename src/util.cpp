@@ -444,7 +444,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
         cv::imwrite((cv::String)filename.str().c_str(),image);
 
         //Add To CircBuffer
-        RSC_input.pcircbuffer->update_buffer(image,nfrmCamB,TimeStamp_fromCamera.microSeconds);
+        //RSC_input.pcircbuffer->update_buffer(image,nfrmCamB,TimeStamp_fromCamera.microSeconds);
 
         if(bVerbose){
             mtx.lock();
@@ -572,7 +572,7 @@ void* rec_onDisk_camA(void *tdata)
         logss << RSC_input->eventCount <<'\t'<< nfrmCamA <<'\t'<< buff <<'\t' << delta  << "\t" << ms1 << "\t" << TimeStamp_microseconds << std:: endl;
 
         // Pass all Frames to circ buffer
-        RSC_input->pcircbuffer->update_buffer(cvm,nfrmCamA,logss.str());
+        RSC_input->pcircbuffer->update_buffer(cvm,nfrmCamA,ms1,logss.str());
 
         //If Consumer Thread Has Consumed this Image on Display
         int value;
