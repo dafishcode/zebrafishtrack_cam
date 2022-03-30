@@ -256,6 +256,7 @@ int main(int argc, char** argv)
     ofstream bufferfile(bufferfilename.str().c_str());
 
     // thread-safe circular buffer CAM A allows saving a Number of images prior to an Event being Triggered
+    ///\todo Initialize With VideoWriter poijnter - circBuff Needs to be the only video Output to disk.
     circular_buffer_ts circ_buffer_camA(BUFFER_SIZE,RSC_input_camA.proc_folder,&bufferfile);
     RSC_input_camA.pcircbuffer = &circ_buffer_camA;
 
