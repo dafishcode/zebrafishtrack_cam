@@ -91,7 +91,7 @@ int main(int argc, char** argv)
         "{camBIdx Cid       |1     | Flycap Idx to identify the camera hardware (choose idx of top camera)}"
         "{eventtimeout e    |240   | Max event recording duration (sec), new event is created after timeout }"
         "{timeout t         |600   | Max recording time (sec), stops the recording process (= 10 mins)  }"
-        "{mineventduration d |30 | min duration (sec) of event once recording is triggered on CamA (1st event is autotriggered) }"
+        "{mineventduration d |30   | min duration (sec) of event once recording is triggered on CamA (1st event is autotriggered) }"
         "{timestamp ts      |true | use time stamp       }"
         "{motiontriggered e  |false| Event Capture: Trigger recording  only when something large is moving in the scene (a fish) / Non-Conitnuous recording  }"
         ;
@@ -100,8 +100,9 @@ int main(int argc, char** argv)
 
     stringstream ssMsg;
 
-    ssMsg<<"Zebrafish Experiments Recording videp from the Cameleon3 FLIR camera."<<endl;
-    ssMsg<<"Upgraded to Dual camera capture (2021)."<<endl;
+    ssMsg<<"Camera controller for Zebrafish Experiments using the Cameleon3 FLIR camera."<<endl;
+    ssMsg<<"V1.1 Upgraded to Dual-camera capture (2021)."<<endl;
+    ssMsg<<"V1.2 Upgraded to direct video export (2022)."<<endl;
     ssMsg<<"--------------------------"<<endl;
     ssMsg<<"Author : Kontantinos Lagogiannis 2017"<<endl;
     ssMsg<<"./Rec_onDisk <MODE=1> <outfolder> <outputFormat='avi'> <crop=0> <camAfps=450> <timeout=600sec> <timestamp=false>"<<endl;
@@ -196,28 +197,6 @@ int main(int argc, char** argv)
       }
 
 
-     //Connect to 2nd Cam If Exists
-     if (numCameras > 1)
-     {
-       cout << "Found 2nd Camera. Attempting to connect..." << std::endl;
-       if (connectCam(busMgr,camB,camBIdx,fmt7InfoB) == 1)
-       {
-           ///Set mode and Print Camera Info / In/Out Camera Fps Setting - Setting And Actual
-           SetCam(&camB,f7,k_fmt7ModeB,k_fmt7PixFmt,fFrameRateB,fshutterB);
-           ///Print CamA Mode Information
-           camA.GetVideoModeAndFrameRate(&cVidModB,&cFpsB);
-           std::cout << "IDX:1 Current Camera Video Mode ////" << std::endl;
-           std::cout << "Vid Mode :" << cVidModB << " Fps Mode Set: " << cFpsB << std::endl;
-        // If COnnected to Cam B
-       } else {
-          cerr << " Failed to connect to camera" << std::endl;
-           exit(-1);
-       }
-
-       // Make OutputFolder camB
-       CreateOutputFolder(soutFolder + "/camB/");
-     }
-
     std::cout << "Will Record for a total of " << uimaxsessionduration_sec << "sec" << std::endl;
     std::cout << "Min event duration " << uieventminduration << " sec" << std::endl;
 
@@ -228,14 +207,14 @@ int main(int argc, char** argv)
     // Define the codec and create VideoWriter object
     //To save image sequence use a proper filename (eg. img_%02d.jpg) and fourcc=0 OR fps=0. Use uncompressed image format (eg. img_%02d.BMP) to save raw frames.
     //('M','J','P','G')
-    cv::VideoWriter* pVideoWriter;
+    cv::VideoWriter* pVideoWriterA;
     string stroutputfile = soutFolder;
     if (ioutputType == 1){
          stroutputfile = stroutputfile.append("/camA/exp_video.avi");
-         pVideoWriter = new cv::VideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
+         pVideoWriterA = new cv::VideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
     }else{
         stroutputfile = stroutputfile.append("/camA/img_%07d.bmp");
-        pVideoWriter = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024,1024), false); //initialize the VideoWriter object
+        pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024,1024), false); //initialize the VideoWriter object
       }
 
 
@@ -257,7 +236,7 @@ int main(int argc, char** argv)
 
     // thread-safe circular buffer CAM A allows saving a Number of images prior to an Event being Triggered
     ///\todo Initialize With VideoWriter poijnter - circBuff Needs to be the only video Output to disk.
-    circular_buffer_ts circ_buffer_camA(BUFFER_SIZE,RSC_input_camA.proc_folder,&bufferfile);
+    circular_buffer_ts circ_buffer_camA(BUFFER_SIZE,RSC_input_camA.proc_folder,&bufferfile,pVideoWriterA);
     RSC_input_camA.pcircbuffer = &circ_buffer_camA;
 
     //init Semaphore
@@ -283,6 +262,41 @@ int main(int argc, char** argv)
 
 
 
+   /// CAM B Repeat as Above//
+   cv::VideoWriter* pVideoWriterB = 0;
+
+   //Connect to 2nd Cam If Exists
+   if (numCameras > 1)
+   {
+     cout << "Found 2nd Camera. Attempting to connect..." << std::endl;
+     if (connectCam(busMgr,camB,camBIdx,fmt7InfoB) == 1)
+     {
+         ///Set mode and Print Camera Info / In/Out Camera Fps Setting - Setting And Actual
+         SetCam(&camB,f7,k_fmt7ModeB,k_fmt7PixFmt,fFrameRateB,fshutterB);
+         ///Print CamA Mode Information
+         camB.GetVideoModeAndFrameRate(&cVidModB,&cFpsB);
+         std::cout << "IDX:1 Current Camera Video Mode ////" << std::endl;
+         std::cout << "Vid Mode :" << cVidModB << " Fps Mode Set: " << cFpsB << std::endl;
+      // If COnnected to Cam B
+     } else {
+        cerr << " Failed to connect to camera B" << std::endl;
+         exit(-1);
+     }
+
+     // Make OutputFolder camB
+     CreateOutputFolder(soutFolder + "/camB/");
+
+     string stroutputfile = soutFolder;
+     if (ioutputType == 1){
+          stroutputfile = stroutputfile.append("/camB/exp_video.avi");
+          pVideoWriterB = new cv::VideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
+     }else{
+         stroutputfile = stroutputfile.append("/camB/img_%07d.bmp");
+         pVideoWriterB = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024, 1024), false); //initialize the VideoWriter object
+       }
+   }
+
+
     //Setup thread Constantly On Cam B
     struct camera_thread_data RSC_input_camB;
     RSC_input_camB.cam               = &camB;
@@ -293,7 +307,7 @@ int main(int argc, char** argv)
     RSC_input_camB.eventtimeout     =  (uint)(uimaxsessionduration_sec*fFrameRateB); //min duration of an event in frames
     RSC_input_camB.eventCount       = 0;//CAm B creates 1 event
 
-    circular_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile);
+    circular_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile, pVideoWriterB);
     RSC_input_camB.pcircbuffer = &circ_buffer_camB;
 
     /// Start Top Camera Recording Thread / BOOST Thread Version
@@ -346,7 +360,7 @@ int main(int argc, char** argv)
 
     sem_destroy(&semImgCapCount);
     sem_destroy(&semImgFishDetected);
-    delete(pVideoWriter);
+    delete(pVideoWriterA);
     std::cout <<  std::endl << "~~ Done ~~" << std::endl;
 
     std::exit(EXIT_SUCCESS);

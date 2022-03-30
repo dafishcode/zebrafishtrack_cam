@@ -16,7 +16,8 @@
 // Thread safe circular buffer
 
 using namespace std;
-/// \brief A rolling Buffer of images that allows to save antecedently save images following an event trigger
+/// \brief Handles writing of video frames to disk along with logging time of each frame. Uses a rolling Buffer of images so as to allow to antecedently save images following an event trigger.
+///
 //To prevent copying a class, you can very easily declare a private copy constructor / assignment operators. But you can also inherit boost::noncopyable.
 //: private boost::noncopyable
 class circular_buffer_ts: private boost::noncopyable
@@ -27,7 +28,7 @@ public:
 
     circular_buffer_ts() {}
 
-    circular_buffer_ts(int n, string pf,ofstream* lf) {
+    circular_buffer_ts(int n, string pf,ofstream* lf, cv::VideoWriter* pVideoStream) {
         circ_buff_img.set_capacity(n);
         frame_index.set_capacity(n);
         time_index.set_capacity(n);
@@ -39,12 +40,12 @@ public:
     }
 
     // Add new Image to Buffer - Cannot not be done while Buffer is being dumped to disk
-    void update_buffer(const cv::Mat &imdata, int f, int64 t) {
+    void update_buffer(const cv::Mat &imdata, uint f, string logentrystring) {
         slock lk(monitor);
         if(!writing_buffer){
             //cv::Mat im;
             //imdata.copyTo(im);
-            if(verbose) std::cout<<"update buffer: "<<f<<' '<<t<<endl;
+            if(verbose) std::cout<<"update buffer: "<< f <<' '<< t <<endl;
             circ_buff_img.push_back(imdata.clone());
             frame_index.push_back(f);
             time_index.push_back(t);
@@ -149,11 +150,11 @@ public:
     // Dumps unexported part of Buffer Contents To Disk - while it lock adding any new contents to it
     // This action can only be done by the processor thread so it does not need to be thread safe.
     // Only exports frames that have not been saved yet
-    void writeNewFramesToVideostream(cv::VideoWriter& vidWriter){
+    void writeNewFramesToVideostream(){
 
-        if ( !vidWriter.isOpened() ) //if not initialize the VideoWriter successfully, exit
+        if ( !pVideowriter->isOpened() ) //if not initialize the VideoWriter successfully, exit
         {
-              cerr << "ERROR: Failed to write circular buffer to video" << endl;
+              cerr << "ERROR: Failed to write circular buffer to video, videoWriter not opened" << endl;
               return;
         }
 
@@ -172,7 +173,7 @@ public:
             if(frame_index[i] > lri){
                 // Writing to file
                 //cv::imwrite(filename.str().c_str(),);
-                vidWriter.write(circ_buff_img[i]);
+                pVideowriter->write(circ_buff_img[i]);
                 *logfile << frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
 
                 if(verbose)
@@ -195,14 +196,17 @@ private:
     boost::condition buffer_ready;
     boost::mutex monitor;
     boost::circular_buffer<cv::Mat> circ_buff_img;
-    boost::circular_buffer<int> frame_index;
-    boost::circular_buffer<int64> time_index;
+    boost::circular_buffer<uint> frame_index;
+    boost::circular_buffer<int64> time_index; //Camera Microseconds
+    boost::circular_buffer<string> time_index; //Camera Microseconds
+
     bool recording_state;
     bool writing_buffer;
     long int idx_last_recorded;
 
     string proc_folder;
     ofstream* logfile;
+    cv::VideoWriter* pVideowriter = 0;
     bool verbose=false;
 };
 
