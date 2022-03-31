@@ -13,7 +13,7 @@
 #include <semaphore.h>
 
 #include "../include/aux.h"
-#include "../include/circular_buffer_ts.h"
+#include "../include/circular_video_buffer_ts.h"
 
 
 #define ZR_OUTPICFORMAT  ".pgm"
@@ -54,8 +54,8 @@ struct observer_thread_data{
     string prefix;
     string proc_folder;
     string windisplay;
-    circular_buffer_ts* pcircbufferA; // pointer to Circular Buffer Used in Recording Thread camA
-    circular_buffer_ts* pcircbufferB; // pointer to Circular Buffer Used in Recording Thread camB
+    circular_video_buffer_ts* pcircbufferA; // pointer to Circular Buffer Used in Recording Thread camA
+    circular_video_buffer_ts* pcircbufferB; // pointer to Circular Buffer Used in Recording Thread camB
     int mode;
     char* format;
     string prefix0;
@@ -67,9 +67,9 @@ struct observer_thread_data{
 struct camera_thread_data{
 	Camera *cam;
     string proc_folder;
-    circular_buffer_ts* pcircbuffer;  // pointer to Circular Buffer where to store all camera frames retrieved
+    circular_video_buffer_ts* pcircbuffer;  // pointer to Circular Buffer where to store all camera frames retrieved
     int eventCount; ///Number of Times Fish Has been cited/ Prey cApture events
-    uint eventtimeout; //Min n of frames an event recording should last
+    uint MinEventframes; //Min n of frames an event recording should last
     string display;
     size_t seq_size;
     uint MaxEventFrames;

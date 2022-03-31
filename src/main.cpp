@@ -34,7 +34,7 @@
 
 #include "util.h" //Our Custom Functions for Recording and Saving IMages
 
-#include"../include/circular_buffer_ts.h"
+#include"../include/circular_video_buffer_ts.h"
 #include<boost/thread.hpp>
 #include<boost/chrono.hpp>
 #include <signal.h>
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     const cv::String keys =
         "{help h usage ?    |      | print this help  message   }"
         "{outputDir         |<none>| Dir where To save output video/images and logs}"
-        "{outputType        | 0    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
+        "{outputType        | 1    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
         "{@crop             | 0    | ROI to crop images before save       }"
         "{camAmode Am       |1     | Mode 1 is low Res high FPS}"
         "{camBmode Bm       |0     | Mode 1 is low Res high FPS}"
@@ -133,7 +133,7 @@ int main(int argc, char** argv)
 
     int iCrop                   = parser.get<int>("@crop");
     string soutFolder           = parser.get<string>("outputDir");
-    int ioutputType             = parser.get<int>("outputType");
+    outputType ioutputType      = parser.get<outputType>("outputType");
     bool use_time_stamp         = parser.has("timestamp");
     // Read User set Recording durations for each event and the total recording
     uint uieventminduration         = parser.get<uint>("mineventduration");
@@ -144,7 +144,11 @@ int main(int argc, char** argv)
 
     // When No Event Triggering - Make Whole Recording Session a Single Event
     if (!gbeventtriggered)
+    {
         uieventminduration = uimaxeventduration_sec = uimaxsessionduration_sec;
+        cout << "CONTINUOUS Recording mode" << std::endl;
+    }else
+        cout << "~ MOTION-EVENT triggered ~~ min Event duration " << uieventminduration << "sec, max duration: " <<  uimaxeventduration_sec << std::endl;
 
     if (!parser.check())
     {
@@ -210,22 +214,22 @@ int main(int argc, char** argv)
     //('M','J','P','G')
     cv::VideoWriter* pVideoWriterA;
     string stroutputfile = soutFolder;
-    if (ioutputType == 0){
-       stroutputfile = stroutputfile.append("/camA/img_%09d.bmp");
-       pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(640,512), false); //initialize the VideoWriter object
-     }
-    if (ioutputType == 1){
-         stroutputfile = stroutputfile.append("/camA/exp_video_y800.avi");
-         pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object //('Y','8','0','0') cv::VideoWriter::fourcc('M','J','P','G') cv::VideoWriter::fourcc('X','V','I','D')
-    }
-     if (ioutputType == 2){
-          stroutputfile = stroutputfile.append("/camA/exp_video_mpeg.mp4");
-          pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
-     }
-     if (ioutputType == 3){
-          stroutputfile = stroutputfile.append("/camA/exp_video_xvid.mp4");
-          pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
-     }
+//    if (ioutputType == zCam_SEQIMAGES){
+//       stroutputfile = stroutputfile.append("/camA/img_%09d.bmp");
+//       pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(640,512), false); //initialize the VideoWriter object
+//     }
+//    if (ioutputType == 1){
+//         stroutputfile = stroutputfile.append("/camA/exp_video_y800.avi");
+//         pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object //('Y','8','0','0') cv::VideoWriter::fourcc('M','J','P','G') cv::VideoWriter::fourcc('X','V','I','D')
+//    }
+//     if (ioutputType == 2){
+//          stroutputfile = stroutputfile.append("/camA/exp_video_mpeg.mp4");
+//          pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+//     }
+//     if (ioutputType == 3){
+//          stroutputfile = stroutputfile.append("/camA/exp_video_xvid.mp4");
+//          pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+//     }
 
 
 
@@ -237,7 +241,7 @@ int main(int argc, char** argv)
     RSC_input_camA.display           = string("Bottom display (camA)");
     RSC_input_camA.crop              = iCrop;
     RSC_input_camA.MaxEventFrames =  fFrameRateA*uimaxeventduration_sec; //Calc Max Frames given camera FPS
-    RSC_input_camA.eventtimeout     =  (uint)(uieventminduration*fFrameRateA); //min duration of an event in frames
+    RSC_input_camA.MinEventframes     =  (uint)(uieventminduration*fFrameRateA); //min duration of an event in frames
     RSC_input_camA.eventCount        = 0;//Start Zero And IMg Detection will increment this
 
     // Frames recorded when writing the buffer are specified in bufferfile
@@ -247,7 +251,7 @@ int main(int argc, char** argv)
 
     // thread-safe circular buffer CAM A allows saving a Number of images prior to an Event being Triggered
     ///\todo Initialize With VideoWriter poijnter - circBuff Needs to be the only video Output to disk.
-    circular_buffer_ts circ_buffer_camA(BUFFER_SIZE,RSC_input_camA.proc_folder,&bufferfile,pVideoWriterA);
+    circular_video_buffer_ts circ_buffer_camA(BUFFER_SIZE,RSC_input_camA.proc_folder,&bufferfile,ioutputType,fFrameRateA);
     RSC_input_camA.pcircbuffer = &circ_buffer_camA;
 
     //init Semaphore
@@ -321,10 +325,10 @@ int main(int argc, char** argv)
     RSC_input_camB.display           = string("Top display (camB)");
     RSC_input_camB.crop              = iCrop;
     RSC_input_camB.MaxEventFrames =  fFrameRateB*uimaxsessionduration_sec; //Calc Max Frames given camera FPS
-    RSC_input_camB.eventtimeout     =  (uint)(uimaxsessionduration_sec*fFrameRateB); //min duration of an event in frames
+    RSC_input_camB.MinEventframes     =  (uint)(uimaxsessionduration_sec*fFrameRateB); //min duration of an event in frames
     RSC_input_camB.eventCount       = 0;//IMg Detection will increment this
 
-    circular_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile, pVideoWriterB);
+    circular_video_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile,ioutputType,fFrameRateB);
     RSC_input_camB.pcircbuffer = &circ_buffer_camB;
 
     /// Start Top Camera Recording Thread / BOOST Thread Version
@@ -382,7 +386,7 @@ int main(int argc, char** argv)
 
     sem_destroy(&semImgCapCount);
     sem_destroy(&semImgFishDetected);
-    delete(pVideoWriterA);
+    //delete(pVideoWriterA);
     std::cout <<  std::endl << "~~ Done ~~" << std::endl;
 
     /// Disconnect cameras //

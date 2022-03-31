@@ -6,7 +6,7 @@
 HEADERS = \
    $$PWD/include/util.h \
     include/aux.h \
-    include/circular_buffer_ts.h \
+    include/circular_video_buffer_ts.h \
     src/arduino-serial-lib.h
 
 
