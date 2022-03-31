@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     const cv::String keys =
         "{help h usage ?    |      | print this help  message   }"
         "{outputDir         |<none>| Dir where To save output video/images and logs}"
-        "{outputType        | 3    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
+        "{outputType        | 0    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
         "{@crop             | 0    | ROI to crop images before save       }"
         "{camAmode Am       |1     | Mode 1 is low Res high FPS}"
         "{camBmode Bm       |0     | Mode 1 is low Res high FPS}"
@@ -211,8 +211,8 @@ int main(int argc, char** argv)
     cv::VideoWriter* pVideoWriterA;
     string stroutputfile = soutFolder;
     if (ioutputType == 0){
-       stroutputfile = stroutputfile.append("/camA/img_%07d.bmp");
-       pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 1, cv::Size(1024,1024), false); //initialize the VideoWriter object
+       stroutputfile = stroutputfile.append("/camA/img_%09d.bmp");
+       pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(640,512), false); //initialize the VideoWriter object
      }
     if (ioutputType == 1){
          stroutputfile = stroutputfile.append("/camA/exp_video_y800.avi");
