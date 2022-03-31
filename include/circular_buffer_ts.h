@@ -34,6 +34,7 @@ public:
         time_index.set_capacity(n);
         logstring.set_capacity(n);
 
+        pVideowriter = pVideoStream;
         idx_last_recorded=0;
         proc_folder=pf;
         logfile=lf;
@@ -103,6 +104,7 @@ public:
     void set_outputfolder(string sdir)
     {   slock lk(monitor);
         proc_folder = sdir;
+
     }
 
     bool get_recorder_state(){
@@ -137,8 +139,11 @@ public:
                 stringstream filename;
 
                 filename << proc_folder<<"/" << fixedLengthString((int)frame_index[i],10) << ".pgm";
-                cv::imwrite(filename.str().c_str(),circ_buff_img[i]);
-                *logfile <<  logstring[i];// frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
+                if (recording_state)
+                {
+                    cv::imwrite(filename.str().c_str(),circ_buff_img[i]);
+                    *logfile <<  logstring[i];// frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
+                }
                 if(verbose) cout<<"write buffer: "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
             }
         }
@@ -159,7 +164,8 @@ public:
         if ( !pVideowriter->isOpened() ) //if not initialize the VideoWriter successfully, exit
         {
               cerr << "ERROR: Failed to write circular buffer to video, videoWriter not opened" << endl;
-              return;
+              //pVideoWriterB->open()
+               return;
         }
 
         unsigned int i=0;
@@ -181,7 +187,7 @@ public:
                 *logfile << logstring[i];//frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
 
                 if(verbose)
-                    cout<<"write buffer: "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
+                    cout<<"write "<<'\t'<<frame_index[i]<<'\t'<<time_index[i]<<endl;
             }
         }
 
@@ -205,13 +211,13 @@ private:
     boost::circular_buffer<string> logstring; //Camera Microseconds
 
     bool recording_state;
-    bool writing_buffer;
+    bool writing_buffer =false;
     long int idx_last_recorded;
 
     string proc_folder;
     ofstream* logfile;
     cv::VideoWriter* pVideowriter = 0;
-    bool verbose=false;
+    bool verbose=true;
 };
 
 #endif // CIRCULAR_BUFFER_TS_H

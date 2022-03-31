@@ -619,8 +619,10 @@ void* rec_onDisk_camA(void *tdata)
             //rawImage.Save(filename.str().c_str()); //This is SLOW!!
 
 
-            //RSC_input->pcircbuffer->writeNewFramesToVideostream();
-            RSC_input->pcircbuffer->writeNewFramesToImageSequence();
+
+            RSC_input->pcircbuffer->set_recorder_state(gbEventRecording);
+            RSC_input->pcircbuffer->writeNewFramesToVideostream();
+            //RSC_input->pcircbuffer->writeNewFramesToImageSequence();
             //cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
             nfrmCamA++;
 
@@ -632,6 +634,7 @@ void* rec_onDisk_camA(void *tdata)
         if (UINT_MAX == nfrmCamA || (nfrmCamA == cMaxFrames && gbEventRecording ) )
         {   std::cerr << "Limit Of Event Period Reached / End Recording of this event.";
             gbEventRecording = false;
+            RSC_input->pcircbuffer->set_recorder_state(false);
             std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (nfrmCamA+1)) << std::endl;
         }
 
@@ -644,6 +647,7 @@ void* rec_onDisk_camA(void *tdata)
            if (fishTimeout < 1)
            {
                 gbEventRecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
+                RSC_input->pcircbuffer->set_recorder_state(gbEventRecording);
                 std::cout << "Event "<< RSC_input->eventCount << " Duration:" << dmFps << " sec, Mean Rec fps " << fixed << 1.0/(dmFps / (nfrmCamA+1))<< std::endl;
            }
            else
@@ -660,17 +664,18 @@ void* rec_onDisk_camA(void *tdata)
             //Make New    Sub Directory Of Next Recording
             RSC_input->eventCount++;
 
-
+            //Update File Name to set to new SubDir
             outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3);
             RSC_input->pcircbuffer->set_outputfolder(outfolder);
             CreateOutputFolder(outfolder);
+            //Set VideoWriter to new Location
 
-            //Update File Name to set to new SubDir
 
             nfrmCamA=0;//Restart Image Frame Count
             dmFps = 0.0;
             ms0            = cv::getTickCount(); //Reset Timer 0 Start tm
             gbEventRecording = true;
+
         }
 
 
@@ -902,7 +907,8 @@ void *camViewEventTrigger(void* tdata){
     gbrun = false; //Flag that stops the inf loop of recorder.
 
     detector->clear();
-
+    Reader_input->pcircbufferA->set_recorder_state(false);
+    Reader_input->pcircbufferB->set_recorder_state(false);
 
     if (t >= Reader_input->timeout)
     {

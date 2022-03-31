@@ -26,8 +26,8 @@ extern cv::Mat gframeBuffer; //Global Image Buffer holding Next Image for Displa
 extern cv::Mat gframeMask;
 extern sem_t   semImgCapCount;////Semaphore for image Captured Signal
 extern sem_t semImgFishDetected; //There is a fish In the scene lock
-extern pthread_cond_t cond;
-extern pthread_mutex_t lock;
+//extern pthread_cond_t cond;
+//extern pthread_mutex_t gmutex_lock;
 extern bool bImgCaptured;/// Global Flag indicating new Image Has been captured by camera
 extern bool gbEventRecording; //Glag That Images Are being saved
 extern bool gbtimeoutreached; //Glag That Images Are being saved

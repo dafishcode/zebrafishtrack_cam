@@ -50,8 +50,8 @@ cv::Mat gframeMask;
 
 sem_t   semImgCapCount;////Semaphore for image Captured Signal
 sem_t   semImgFishDetected;////Semaphore for Fish Detected
-pthread_cond_t cond;
-pthread_mutex_t lock    = PTHREAD_MUTEX_INITIALIZER;
+//pthread_cond_t cond;
+//pthread_mutex_t gmutex_lock    = PTHREAD_MUTEX_INITIALIZER;
 bool bImgCaptured       = false;/// Global Flag indicating new Image Has been captured by camera
 bool gbeventtriggered = true; ///Global Flag whether recorder is operating in the event/motion trigger or continuous recording mode
 
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     const cv::String keys =
         "{help h usage ?    |      | print this help  message   }"
         "{outputDir         |<none>| Dir where To save output video/images and logs}"
-        "{outputType        | 1    | Image Sequence 0 /Video file 1}"
+        "{outputType        | 3    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
         "{@crop             | 0    | ROI to crop images before save       }"
         "{camAmode Am       |1     | Mode 1 is low Res high FPS}"
         "{camBmode Bm       |0     | Mode 1 is low Res high FPS}"
@@ -210,13 +210,23 @@ int main(int argc, char** argv)
     //('M','J','P','G')
     cv::VideoWriter* pVideoWriterA;
     string stroutputfile = soutFolder;
+    if (ioutputType == 0){
+       stroutputfile = stroutputfile.append("/camA/img_%07d.bmp");
+       pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 1, cv::Size(1024,1024), false); //initialize the VideoWriter object
+     }
     if (ioutputType == 1){
-         stroutputfile = stroutputfile.append("/camA/exp_video.avi");
-         pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object //('Y','8','0','0')
-    }else{
-        stroutputfile = stroutputfile.append("/camA/img_%07d.bmp");
-        pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 1, cv::Size(1024,1024), false); //initialize the VideoWriter object
-      }
+         stroutputfile = stroutputfile.append("/camA/exp_video_y800.avi");
+         pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object //('Y','8','0','0') cv::VideoWriter::fourcc('M','J','P','G') cv::VideoWriter::fourcc('X','V','I','D')
+    }
+     if (ioutputType == 2){
+          stroutputfile = stroutputfile.append("/camA/exp_video_mpeg.mp4");
+          pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+     }
+     if (ioutputType == 3){
+          stroutputfile = stroutputfile.append("/camA/exp_video_xvid.mp4");
+          pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , fFrameRateA, cv::Size(640,512), false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+     }
+
 
 
     //Got CAM1
@@ -290,8 +300,14 @@ int main(int argc, char** argv)
      string stroutputfile = soutFolder;
      if (ioutputType == 1){
           stroutputfile = stroutputfile.append("/camB/exp_video.avi");
-          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
-     }else{
+          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , fFrameRateA, cv::Size(640,512), true); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+     }
+     if (ioutputType == 2){
+          stroutputfile = stroutputfile.append("/camB/exp_video_mpeg.avi");
+          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , fFrameRateA, cv::Size(640,512), true); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+     }
+
+     if (ioutputType == 0){
          stroutputfile = stroutputfile.append("/camB/img_%07d.bmp");
          pVideoWriterB = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024, 1024), false); //initialize the VideoWriter object
        }
@@ -338,10 +354,15 @@ int main(int argc, char** argv)
 
     //if(T_REC_B.joinable()) //Cam B
     //    T_REC_B.join();
-
-
+    //Only need the monitor thread to join/ exit for programme to stop
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
     //pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
+
+    T_REC_B.detach();
+    pthread_detach(tidRec);
+    pthread_detach(tidDisplay);
+    //usleep(5000); //Pause For all activity to finish
+
 
 
     //pthread_kill(tidRec,SIGTERM); //Stop The recording Thread
@@ -363,6 +384,18 @@ int main(int argc, char** argv)
     sem_destroy(&semImgFishDetected);
     delete(pVideoWriterA);
     std::cout <<  std::endl << "~~ Done ~~" << std::endl;
+
+    /// Disconnect cameras //
+    if (camA.IsConnected()){
+        camA.StopCapture();
+        camA.Disconnect();
+    }
+    if (numCameras > 1){
+        if (camB.IsConnected()){
+            camB.StopCapture();
+            camB.Disconnect();
+        }
+    }
 
     std::exit(EXIT_SUCCESS);
     //cam.StopCapture();
