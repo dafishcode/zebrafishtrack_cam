@@ -32,6 +32,8 @@ public:
         circ_buff_img.set_capacity(n);
         frame_index.set_capacity(n);
         time_index.set_capacity(n);
+        logstring.set_capacity(n);
+
         idx_last_recorded=0;
         proc_folder=pf;
         logfile=lf;
@@ -126,7 +128,7 @@ public:
             slock lk(monitor);
             writing_buffer=true;
             lri=idx_last_recorded;
-            cout<<"writing whole buffer"<<endl;
+            //cout<<"writing whole buffer"<<endl;
         }
 
         for(i=0;i<circ_buff_img.size();i++){
@@ -168,7 +170,7 @@ public:
             slock lk(monitor);
             writing_buffer=true;
             lri=idx_last_recorded; //save idx of most recently exported/saved img to file
-            cout<<"writing whole buffer"<<endl;
+            cout<<"writing buffer to vid"<<endl;
         }
 
         for(i=0;i < circ_buff_img.size();i++){

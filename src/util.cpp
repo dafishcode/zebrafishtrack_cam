@@ -38,7 +38,7 @@ bool gbrun            =  true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 extern uint uiEventMinDuration; //min duration for an event (if nothing shows up in view)
-
+extern bool gbeventtriggered; //Continuous Recording - or motion triggered/event
 
 void my_handler(int sig){
        cout<<endl<<"Recording stopped."<<endl;
@@ -344,9 +344,10 @@ void CreateOutputFolder(string folder){
         const int dir_err = mkdir(folder.c_str(),0777);
         if ( dir_err == -1){
 
-            std::cerr <<  dir_err << " Error creating directory! : " << folder << std::endl;
+            std::cerr <<  dir_err << " Error creating directory!: " << folder << std::endl;
             //perror(argv[0]);
-            exit(1);
+            //exit(1);
+            return;
 	    }
     }
 }
@@ -416,6 +417,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
     logfile << "Frame" << '\t' << "clock_time" << '\t' << "CPU_ticks" <<'\t'<< "camts_microsec" << endl;
     Image rawImage;
 
+
     while(gbrun){
         //RSC_input->cam->FireSoftwareTrigger(false);
         RSC_input.cam->RetrieveBuffer(&rawImage);
@@ -429,8 +431,8 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
 
         data = rawImage.GetData();
         if (rawImage.GetRows() == 0){
-            cerr << "empty image retrieved from camera" << std::endl;
-            break;
+            //cerr << "empty image retrieved from camera" << std::endl;
+            continue;
         }
         cv::Mat cvm (rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
         //  Alternativelly can copy data into existing cv img instance:
@@ -490,6 +492,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
 void* rec_onDisk_camA(void *tdata)
 {
     char buff[32]; //For Time Stamp
+    string outfolder;
     struct tm *sTm;
     unsigned int nfrmCamA           = 0;
     int64 ms0                      = cv::getTickCount();
@@ -528,12 +531,14 @@ void* rec_onDisk_camA(void *tdata)
 //	}
 		
 
-    string outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3) ;
-    RSC_input->pcircbuffer->set_outputfolder(outfolder);
-
-    cout<<"RECORDING to " << outfolder << endl;
+    //string outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3) ;
+    //RSC_input->pcircbuffer->set_outputfolder(outfolder);
+    outfolder = RSC_input->proc_folder;
+    cout<<"RECORDING to " << RSC_input->proc_folder << endl;
 
     ms0            = cv::getTickCount();
+
+    int64 TimeStamp_microseconds_start = 0;
 
     while(gbrun){
 
@@ -549,10 +554,14 @@ void* rec_onDisk_camA(void *tdata)
         /// TimeStamps -
             // Add milliseconds timestamp to image frame
             TimeStamp tsmp_cam = rawImage.GetTimeStamp(); //count restart for microseconds
-            int64 TimeStamp_microseconds = tsmp_cam.seconds*1e6+tsmp_cam.microSeconds;
+            int64 TimeStamp_microseconds = tsmp_cam.seconds*1e6+tsmp_cam.microSeconds-TimeStamp_microseconds_start;
+            if (TimeStamp_microseconds_start == 0){
+                TimeStamp_microseconds_start = TimeStamp_microseconds;
+                TimeStamp_microseconds = 0;
+            }
 
             sprintf(buff,"%06.2f",((double)TimeStamp_microseconds/1000.0) );
-            cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-20),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
+            cv::putText(cvm,buff,cv::Point(cvm.cols-135,cvm.rows-10),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
             //sprintf(buff,"%d",tsmp_cam.cycleCount);
             //cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-8),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
 
@@ -610,7 +619,8 @@ void* rec_onDisk_camA(void *tdata)
             //rawImage.Save(filename.str().c_str()); //This is SLOW!!
 
 
-            RSC_input->pcircbuffer->writeNewFramesToVideostream();
+            //RSC_input->pcircbuffer->writeNewFramesToVideostream();
+            RSC_input->pcircbuffer->writeNewFramesToImageSequence();
             //cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
             nfrmCamA++;
 
@@ -644,10 +654,15 @@ void* rec_onDisk_camA(void *tdata)
         /// Check Recording Period Has not timedout
         if (fishFlag > 0 && !gbEventRecording && !gbtimeoutreached)
         {
+
+
             fishTimeout         = RSC_input->eventtimeout; //rESET tIMER
             //Make New    Sub Directory Of Next Recording
             RSC_input->eventCount++;
+
+
             outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3);
+            RSC_input->pcircbuffer->set_outputfolder(outfolder);
             CreateOutputFolder(outfolder);
 
             //Update File Name to set to new SubDir
@@ -832,7 +847,7 @@ void *camViewEventTrigger(void* tdata){
             // Show blobs
             if (gbEventRecording)
             {
-                cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,CV_FILLED);
+                cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,cv::FILLED);
             }
 
             if (t >= Reader_input->timeout)
@@ -865,7 +880,7 @@ void *camViewEventTrigger(void* tdata){
         ///Tell Recorder that Fish Is Here - if Blob has been Detected
         /// Press r To Force Recording
         sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
-        if ((fishFlag ==0 && keypoints_in_mask.size() > 0) || c =='r') //Post That Fish Have been Found
+        if ((fishFlag ==0 && keypoints_in_mask.size() > 0) || c =='r' || gbeventtriggered) //Post That Fish Have been Found
         {
             //Signal that to Initiate Recording on rec thread
             sem_post(&semImgFishDetected);

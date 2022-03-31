@@ -53,6 +53,7 @@ sem_t   semImgFishDetected;////Semaphore for Fish Detected
 pthread_cond_t cond;
 pthread_mutex_t lock    = PTHREAD_MUTEX_INITIALIZER;
 bool bImgCaptured       = false;/// Global Flag indicating new Image Has been captured by camera
+bool gbeventtriggered = true; ///Global Flag whether recorder is operating in the event/motion trigger or continuous recording mode
 
 int main(int argc, char** argv)
 {
@@ -79,7 +80,7 @@ int main(int argc, char** argv)
     const cv::String keys =
         "{help h usage ?    |      | print this help  message   }"
         "{outputDir         |<none>| Dir where To save output video/images and logs}"
-        "{outputType        | 0    | Image Sequence 0 /Video file 1}"
+        "{outputType        | 1    | Image Sequence 0 /Video file 1}"
         "{@crop             | 0    | ROI to crop images before save       }"
         "{camAmode Am       |1     | Mode 1 is low Res high FPS}"
         "{camBmode Bm       |0     | Mode 1 is low Res high FPS}"
@@ -139,10 +140,10 @@ int main(int argc, char** argv)
     uint uimaxeventduration_sec     = parser.get<uint>("eventtimeout");
     uint uimaxsessionduration_sec   = parser.get<uint>("timeout");
 
-    bool eventtriggered         = parser.get<bool>("motiontriggered");
+    gbeventtriggered            = parser.get<bool>("motiontriggered");
 
     // When No Event Triggering - Make Whole Recording Session a Single Event
-    if (!eventtriggered)
+    if (!gbeventtriggered)
         uieventminduration = uimaxeventduration_sec = uimaxsessionduration_sec;
 
     if (!parser.check())
@@ -211,10 +212,10 @@ int main(int argc, char** argv)
     string stroutputfile = soutFolder;
     if (ioutputType == 1){
          stroutputfile = stroutputfile.append("/camA/exp_video.avi");
-         pVideoWriterA = new cv::VideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
+         pVideoWriterA = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object //('Y','8','0','0')
     }else{
         stroutputfile = stroutputfile.append("/camA/img_%07d.bmp");
-        pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024,1024), false); //initialize the VideoWriter object
+        pVideoWriterA = new cv::VideoWriter(stroutputfile, 0, 1, cv::Size(1024,1024), false); //initialize the VideoWriter object
       }
 
 
@@ -246,7 +247,7 @@ int main(int argc, char** argv)
     //Make Mask
     ///Draw ROI Mask
     gframeMask = cv::Mat::zeros(fmt7InfoA.maxHeight,fmt7InfoA.maxWidth,CV_8UC1);
-    cv::circle(gframeMask,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-50,CV_RGB(255,255,255),-1,CV_FILLED);
+    cv::circle(gframeMask,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-50,CV_RGB(255,255,255),-1,cv::FILLED);
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);
 
 
@@ -289,7 +290,7 @@ int main(int argc, char** argv)
      string stroutputfile = soutFolder;
      if (ioutputType == 1){
           stroutputfile = stroutputfile.append("/camB/exp_video.avi");
-          pVideoWriterB = new cv::VideoWriter(stroutputfile, CV_FOURCC('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
+          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0'), fFrameRateA, cv::Size(1024,1024), false); //initialize the VideoWriter object
      }else{
          stroutputfile = stroutputfile.append("/camB/img_%07d.bmp");
          pVideoWriterB = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024, 1024), false); //initialize the VideoWriter object
@@ -305,7 +306,7 @@ int main(int argc, char** argv)
     RSC_input_camB.crop              = iCrop;
     RSC_input_camB.MaxEventFrames =  fFrameRateB*uimaxsessionduration_sec; //Calc Max Frames given camera FPS
     RSC_input_camB.eventtimeout     =  (uint)(uimaxsessionduration_sec*fFrameRateB); //min duration of an event in frames
-    RSC_input_camB.eventCount       = 0;//CAm B creates 1 event
+    RSC_input_camB.eventCount       = 0;//IMg Detection will increment this
 
     circular_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile, pVideoWriterB);
     RSC_input_camB.pcircbuffer = &circ_buffer_camB;
@@ -335,12 +336,12 @@ int main(int argc, char** argv)
 
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
 
-    if(T_REC_B.joinable()) //Cam B
-        T_REC_B.join();
+    //if(T_REC_B.joinable()) //Cam B
+    //    T_REC_B.join();
 
 
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
-    pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
+    //pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
 
 
     //pthread_kill(tidRec,SIGTERM); //Stop The recording Thread
