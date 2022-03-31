@@ -281,7 +281,7 @@ private:
     ofstream* mstreamlogfile;
     cv::VideoWriter moVideowriter;
     cv::Size mszFrame; //Resolution Of vid in pixels
-    bool mbverbose=true;
+    bool mbverbose=false;
 };
 
 #endif // CIRCULAR_VIDEO_BUFFER_TS_H
