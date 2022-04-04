@@ -29,3 +29,7 @@ LIBS += `pkg-config --libs opencv`
 
 #DEFINES = 
 
+DISTFILES += \
+    scripts/install_opencv.sh \
+    scripts/makevids.sh
+
