@@ -13,7 +13,7 @@
 #include <semaphore.h>
 
 #include "../include/aux.h"
-#include "../include/circular_buffer_ts.h"
+#include "../include/circular_video_buffer_ts.h"
 
 
 #define ZR_OUTPICFORMAT  ".pgm"
@@ -26,8 +26,8 @@ extern cv::Mat gframeBuffer; //Global Image Buffer holding Next Image for Displa
 extern cv::Mat gframeMask;
 extern sem_t   semImgCapCount;////Semaphore for image Captured Signal
 extern sem_t semImgFishDetected; //There is a fish In the scene lock
-extern pthread_cond_t cond;
-extern pthread_mutex_t lock;
+//extern pthread_cond_t cond;
+//extern pthread_mutex_t gmutex_lock;
 extern bool bImgCaptured;/// Global Flag indicating new Image Has been captured by camera
 extern bool gbEventRecording; //Glag That Images Are being saved
 extern bool gbtimeoutreached; //Glag That Images Are being saved
@@ -54,8 +54,8 @@ struct observer_thread_data{
     string prefix;
     string proc_folder;
     string windisplay;
-    circular_buffer_ts* pcircbufferA; // pointer to Circular Buffer Used in Recording Thread camA
-    circular_buffer_ts* pcircbufferB; // pointer to Circular Buffer Used in Recording Thread camB
+    circular_video_buffer_ts* pcircbufferA; // pointer to Circular Buffer Used in Recording Thread camA
+    circular_video_buffer_ts* pcircbufferB; // pointer to Circular Buffer Used in Recording Thread camB
     int mode;
     char* format;
     string prefix0;
@@ -67,9 +67,9 @@ struct observer_thread_data{
 struct camera_thread_data{
 	Camera *cam;
     string proc_folder;
-    circular_buffer_ts* pcircbuffer;  // pointer to Circular Buffer where to store all camera frames retrieved
+    circular_video_buffer_ts* pcircbuffer;  // pointer to Circular Buffer where to store all camera frames retrieved
     int eventCount; ///Number of Times Fish Has been cited/ Prey cApture events
-    uint eventtimeout; //Min n of frames an event recording should last
+    uint MinEventframes; //Min n of frames an event recording should last
     string display;
     size_t seq_size;
     uint MaxEventFrames;

@@ -23,7 +23,7 @@
 #include <CameraBase.h>
 
 #include"../include/util.h"
-#include"../include/circular_buffer_ts.h"
+#include"../include/circular_video_buffer_ts.h"
 
 using namespace std;
 using namespace FlyCapture2;
@@ -38,7 +38,7 @@ bool gbrun            =  true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 extern uint uiEventMinDuration; //min duration for an event (if nothing shows up in view)
-
+extern bool gbeventtriggered; //Continuous Recording - or motion triggered/event
 
 void my_handler(int sig){
        cout<<endl<<"Recording stopped."<<endl;
@@ -344,9 +344,10 @@ void CreateOutputFolder(string folder){
         const int dir_err = mkdir(folder.c_str(),0777);
         if ( dir_err == -1){
 
-            std::cerr <<  dir_err << " Error creating directory! : " << folder << std::endl;
+            std::cerr <<  dir_err << " Error creating directory!: " << folder << std::endl;
             //perror(argv[0]);
-            exit(1);
+            //exit(1);
+            return;
 	    }
     }
 }
@@ -416,6 +417,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
     logfile << "Frame" << '\t' << "clock_time" << '\t' << "CPU_ticks" <<'\t'<< "camts_microsec" << endl;
     Image rawImage;
 
+
     while(gbrun){
         //RSC_input->cam->FireSoftwareTrigger(false);
         RSC_input.cam->RetrieveBuffer(&rawImage);
@@ -429,8 +431,8 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
 
         data = rawImage.GetData();
         if (rawImage.GetRows() == 0){
-            cerr << "empty image retrieved from camera" << std::endl;
-            break;
+            //cerr << "empty image retrieved from camera" << std::endl;
+            continue;
         }
         cv::Mat cvm (rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
         //  Alternativelly can copy data into existing cv img instance:
@@ -444,7 +446,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
         cv::imwrite((cv::String)filename.str().c_str(),image);
 
         //Add To CircBuffer
-        RSC_input.pcircbuffer->update_buffer(image,nfrmCamB,TimeStamp_fromCamera.microSeconds);
+        //RSC_input.pcircbuffer->update_buffer(image,nfrmCamB,TimeStamp_fromCamera.microSeconds);
 
         if(bVerbose){
             mtx.lock();
@@ -460,7 +462,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
         //mtx.unlock();
 
         // Normally gbtimeoutreached will signal end - Here is an additional internal Stop Condition Based on estimated total Frame count
-        if((cv::getTickCount()-initial_time)/1e9 > RSC_input.eventtimeout){
+        if((cv::getTickCount()-initial_time)/1e9 > RSC_input.MinEventframes){
             mtx.lock();
             run=false;
             mtx.unlock();
@@ -490,8 +492,10 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
 void* rec_onDisk_camA(void *tdata)
 {
     char buff[32]; //For Time Stamp
+    string outfolder;
     struct tm *sTm;
-    unsigned int nfrmCamA           = 0;
+    int64 nfrmCamA           = 0; //Frame Counter of Whole Recording Episode
+    int64 nEventfrmCamA      = 0; //Frame Counter For current Event being Recorded
     int64 ms0                      = cv::getTickCount();
     int64 ms1                      = 0;
     double dmFps                    = 0.0;
@@ -500,8 +504,8 @@ void* rec_onDisk_camA(void *tdata)
     struct camera_thread_data * RSC_input; //Get Thread Parameters
     RSC_input =  (struct camera_thread_data *)tdata; //Cast To CXorrect pointer Type
 
-    unsigned int cMaxFrames = RSC_input->MaxEventFrames;
-    int fishTimeout         = RSC_input->eventtimeout;
+    unsigned int cMaxEventFrames = RSC_input->MaxEventFrames;
+    unsigned int fishTimeout      = RSC_input->MinEventframes;
 
     Error error;  
 
@@ -528,30 +532,60 @@ void* rec_onDisk_camA(void *tdata)
 //	}
 		
 
-    string outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3) ;
-    RSC_input->pcircbuffer->set_outputfolder(outfolder);
-
-    cout<<"RECORDING..."<<endl;
+    //string outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3) ;
+    //RSC_input->pcircbuffer->set_outputfolder(outfolder);
+    outfolder = RSC_input->proc_folder;
+    cout<<"RECORDING to " << RSC_input->proc_folder << endl;
 
     ms0            = cv::getTickCount();
+
+    int64 TimeStamp_microseconds_start = 0;
+
     while(gbrun){
 
         if (!RSC_input->cam->IsConnected())
            break;
-
+        // Get img data from FLIR Camera
 		RSC_input->cam->RetrieveBuffer(&rawImage);
-
         data = rawImage.GetData();
 
-        TimeStamp tsmp_cam = rawImage.GetTimeStamp(); //count restart for microseconds
         //Convert to openCV Matrix - No Need
         cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
 
-        //circ_buffer.update_buffer(image,frame_counter,ms1);
-        // All Frames Passed to circ buffer
-        RSC_input->pcircbuffer->update_buffer(cvm,nfrmCamA,tsmp_cam.microSeconds);
+        /// TimeStamps -
+            // Add milliseconds timestamp to image frame
+            TimeStamp tsmp_cam = rawImage.GetTimeStamp(); //count restart for microseconds
+            int64 TimeStamp_microseconds = tsmp_cam.seconds*1e6+tsmp_cam.microSeconds-TimeStamp_microseconds_start;
+            if (TimeStamp_microseconds_start == 0){
+                TimeStamp_microseconds_start = TimeStamp_microseconds;
+                TimeStamp_microseconds = 0;
+            }
 
-        //If Consumer Thread Has Consumed this Image
+            sprintf(buff,"%06.2f",((double)TimeStamp_microseconds/1000.0) );
+            cv::putText(cvm,buff,cv::Point(cvm.cols-135,cvm.rows-10),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
+            //sprintf(buff,"%d",tsmp_cam.cycleCount);
+            //cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-8),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
+
+            time_t now = time (0);
+            sTm = gmtime (&now);
+            strftime (buff, sizeof(buff), "%H:%M:%S", sTm);
+
+            ///LOG: Append Frame Timing To Event Logfile
+            // CPU based Frame Interval in seconds
+            ms1 =  cv::getTickCount();
+            double delta = (double)(ms1-ms0)/cv::getTickFrequency();
+            ms0 = ms1;
+            //Get Timestamp
+        /// Time Stamps
+
+        stringstream logss;
+        logss << RSC_input->eventCount <<'\t'<< nfrmCamA <<'\t'<< buff <<'\t' << delta  << "\t" << ms1 << "\t" << TimeStamp_microseconds << std:: endl;
+
+        // Pass all Frames to circ buffer
+        RSC_input->pcircbuffer->update_buffer(cvm,nfrmCamA,ms1,logss.str());
+        nfrmCamA++;
+
+        //If Consumer Thread Has Consumed this Image on Display
         int value;
         sem_getvalue(&semImgCapCount, &value);
         if (value == 0) //If Last Image Has been displayed
@@ -571,51 +605,37 @@ void* rec_onDisk_camA(void *tdata)
 //		    tmp_image=cvm;
 //	    }
 
-        //Save to Disk If Recording
+        //Save to Disk If Recording is triggered
         if (gbEventRecording)
         {
-            int64 TimeStamp_microseconds = tsmp_cam.seconds*1e6+tsmp_cam.microSeconds;
-
-            time_t now = time (0);
-            sTm = gmtime (&now);
-            strftime (buff, sizeof(buff), "%H:%M:%S", sTm);
-
-            ///LOG: Append Frame Timing To Event Logfile
-            // CPU Tick Time
-            ms1 =  cv::getTickCount();
-            double delta = (double)(ms1-ms0)/cv::getTickFrequency();
-            ms0 = ms1;
-            //Get Timestamp
+            nEventfrmCamA++;
 
             // FlyCapture2: reference the seconds and microseconds attributes of the TimeStamp structure
             // *, where seconds is UNIX time in seconds*
             //OUtput TSstmp seconds and millisec of each frame
-            logfile << RSC_input->eventCount <<'\t'<< nfrmCamA <<'\t'<< buff <<'\t' << delta  << "\t" << ms1 << "\t" << TimeStamp_microseconds << std:: endl;
+            logfile << RSC_input->eventCount <<'\t'<< nEventfrmCamA <<'\t'<< buff <<'\t' << delta  << "\t" << ms1 << "\t" << TimeStamp_microseconds << std:: endl;
 
-            stringstream filename;
-            filename << outfolder << "/"  << fixedLengthString(nfrmCamA) <<".pgm";
+            //stringstream filename;
+            //filename << outfolder << "/"  << fixedLengthString(nEventfrmCamA) <<".pgm";
             //if(tmp_image.empty()) cout<<center.center.x<<' '<<center.center.y<<endl;
             //rawImage.Save(filename.str().c_str()); //This is SLOW!!
+            //cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
 
-            //Add microseconds timestamp to image frame
-            sprintf(buff,"%06.0f",(float)tsmp_cam.microSeconds);
-            cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-20),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
-            //sprintf(buff,"%d",tsmp_cam.cycleCount);
-            //cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-8),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
+            RSC_input->pcircbuffer->set_recorder_state(gbEventRecording);
+            RSC_input->pcircbuffer->writeNewFramesToVideostream();
+            //RSC_input->pcircbuffer->writeNewFramesToImageSequence();
 
-
-            cv::imwrite(filename.str().c_str(),cvm); //THis Is fast
-            nfrmCamA++;
 
             dmFps += delta;
         }
 
 
         // Check Limits (Integer limits and maximum event duration limits)
-        if (UINT_MAX == nfrmCamA || (nfrmCamA == cMaxFrames && gbEventRecording ) )
+        if (ULONG_MAX == nEventfrmCamA || (nEventfrmCamA == cMaxEventFrames && gbEventRecording ) )
         {   std::cerr << "Limit Of Event Period Reached / End Recording of this event.";
             gbEventRecording = false;
-            std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (nfrmCamA+1)) << std::endl;
+            RSC_input->pcircbuffer->set_recorder_state(false);
+            std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (nEventfrmCamA+1)) << std::endl;
         }
 
         //FISH in ROI Event - Read in If Recording Needs to End
@@ -627,6 +647,7 @@ void* rec_onDisk_camA(void *tdata)
            if (fishTimeout < 1)
            {
                 gbEventRecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
+                RSC_input->pcircbuffer->set_recorder_state(gbEventRecording);
                 std::cout << "Event "<< RSC_input->eventCount << " Duration:" << dmFps << " sec, Mean Rec fps " << fixed << 1.0/(dmFps / (nfrmCamA+1))<< std::endl;
            }
            else
@@ -637,26 +658,25 @@ void* rec_onDisk_camA(void *tdata)
         /// Check Recording Period Has not timedout
         if (fishFlag > 0 && !gbEventRecording && !gbtimeoutreached)
         {
-            fishTimeout         = RSC_input->eventtimeout; //rESET tIMER
+
+
+            fishTimeout         =  RSC_input->MinEventframes; //rESET tIMER
             //Make New    Sub Directory Of Next Recording
             RSC_input->eventCount++;
-            outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3);
-            CreateOutputFolder(outfolder);
 
             //Update File Name to set to new SubDir
+            outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3);
+            RSC_input->pcircbuffer->set_outputfolder(outfolder);
+            CreateOutputFolder(outfolder);
+            //Set VideoWriter to new Location
 
-            nfrmCamA=0;//Restart Image Frame Count
-            dmFps = 0.0;
-            ms0            = cv::getTickCount(); //Reset Timer 0 Start tm
-            gbEventRecording = true;
+
+            nEventfrmCamA = 0;//Restart Image Frame Count
+            dmFps       = 0.0;
+            ms0         = cv::getTickCount(); //Reset Timer 0 Start tm
+            gbEventRecording = true; //Timeout of Event - Start A new One
+
         }
-
-
-
-       //Log File
-
-
-
 
     } //Main Loop
 
@@ -775,21 +795,8 @@ void *camViewEventTrigger(void* tdata){
 
         ind = value+nImgDisplayed; //Semaphore Value Should be number of images N3ot Display Yet (ie Sem Incrmenets)
 
-        //if(c=='f') ind++;
-        //if(c=='b') ind=max(0,ind-1);
 
-        //stringstream filename;
-        //if(Reader_input->mode==0){
-//            filename<< Reader_input->proc_folder <<'/'<<fixedLengthString(ind)<< ZR_OUTPICFORMAT;
-    //	} else {
-      //      filename <<  Reader_input->proc_folder   << '/' << Reader_input->prefix0 << fixedLengthString(ind) << Reader_input->format;
-        //}
-
-        //std::cout << filename.str().c_str() << std::endl;
-        //cvimage=imread(filename.str().c_str(),cv::IMREAD_UNCHANGED);
-
-
-        ///TODO : Instead of global frame buffer, Use Circular Buffer And Retrieve last image
+        /// Use Circular Buffer And Retrieve last image (replaced the global frame variable),
         cv::Mat image_from_bufferA,image_from_bufferB;
         long int camA_frame_counter, camB_frame_counter;
         Reader_input->pcircbufferA->retrieve_last(image_from_bufferA, camA_frame_counter);
@@ -825,7 +832,7 @@ void *camViewEventTrigger(void* tdata){
             // Show blobs
             if (gbEventRecording)
             {
-                cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,CV_FILLED);
+                cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,cv::FILLED);
             }
 
             if (t >= Reader_input->timeout)
@@ -855,22 +862,20 @@ void *camViewEventTrigger(void* tdata){
 
         ///Process Image - Check If Fish Is in there
 
-        ///Tell Recorded Fish Is Here if Blob has been Detected
+        ///Tell Recorder that Fish Is Here - if Blob has been Detected
         /// Press r To Force Recording
-
         sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
-        if ((fishFlag ==0 && keypoints_in_mask.size() > 0) || c =='r') //Post That Fish Have been Found
+        //Post That Fish Have been Found if we obtain Filtered Masks or if recorder is in Continuous Recording mode
+        if ((fishFlag ==0 && keypoints_in_mask.size() > 0) || c =='r' || !gbeventtriggered)
         {
-            //Thbis Should Initiate Recording
+            //Signal that to Initiate Recording on rec thread
             sem_post(&semImgFishDetected);
-            Reader_input->pcircbufferA->writeNewFramesToImageSequence(); //Save recent Frames preceding Trigger
+            //Moved to rec_cam thread Reader_input->pcircbufferA->writeNewFramesToImageSequence(); //Save recent Frames preceding Trigger
         }
 
         //The semaphore will be decremented if its value is greater than zero. If the value of the semaphore is zero, then sem_trywait() will return -1 and set errno to EAGAIN
         if (keypoints_in_mask.size() == 0) //There are no fish / Decremend Semaphore - But dont Lock
               sem_trywait(&semImgFishDetected);
-
-
 
 
 
@@ -883,7 +888,8 @@ void *camViewEventTrigger(void* tdata){
     gbrun = false; //Flag that stops the inf loop of recorder.
 
     detector->clear();
-
+    Reader_input->pcircbufferA->set_recorder_state(false);
+    Reader_input->pcircbufferB->set_recorder_state(false);
 
     if (t >= Reader_input->timeout)
     {

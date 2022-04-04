@@ -6,7 +6,7 @@
 HEADERS = \
    $$PWD/include/util.h \
     include/aux.h \
-    include/circular_buffer_ts.h \
+    include/circular_video_buffer_ts.h \
     src/arduino-serial-lib.h
 
 
@@ -20,11 +20,12 @@ SOURCES = \
 INCLUDEPATH = \
     $$PWD/include \
     /usr/include/flycapture
+INCLUDEPATH += /usr/local//include/opencv4/
+INCLUDEPATH += `pkg-config --cflags opencv4`
 
-INCLUDEPATH += `pkg-config --cflags opencv`
 
 LIBS = -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system
-LIBS += `pkg-config --libs opencv`
+LIBS += `pkg-config --libs opencv4`
 
 
 #DEFINES = 
