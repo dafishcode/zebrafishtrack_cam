@@ -82,19 +82,20 @@ int main(int argc, char** argv)
         "{outputDir         |<none>| Dir where To save output video/images and logs}"
         "{outputType        | 1    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
         "{@crop             | 0    | ROI to crop images before save       }"
-        "{camAmode Am       |1     | Mode 1 is low Res high FPS}"
-        "{camBmode Bm       |0     | Mode 1 is low Res high FPS}"
-        "{camAfps  Af       | 40.0| Camera capture fps and output video fps}"
-        "{camBfps  Bf       | 40.0 | Camera capture fps and output video fps}"
-        "{camAshutter As    | 3.0  | Camera shutter speed - set to 3ms }"
-        "{camBshutter Bs    | 3.0   | Camera shutter speed - set to 3ms }"
-        "{camAIdx Cid       |0     | Flycap Idx identifying camera that will be the main event triggered camera (choose Bottom camera)}"
+        "{camAmode Am       | 0     | Mode 1 is low Res high FPS}"
+        "{camBmode Bm       | 0     | Mode 1 is low Res high FPS}"
+        "{camAfps  Af       | 60.0| Camera capture fps and output video fps}"
+        "{camBfps  Bf       | 60.0 | Camera capture fps and output video fps}"
+        "{camAshutter As    | 6.0  | Camera shutter speed - set to 3ms }"
+        "{camBshutter Bs    | 6.0   | Camera shutter speed - set to 3ms }"
+        "{camAIdx Cid       |0     | Flycap Idx identifying camera that will be the main event triggered camera }"
         "{camBIdx Cid       |1     | Flycap Idx to identify the camera hardware (choose idx of top camera)}"
         "{eventtimeout e    |240   | Max event recording duration (sec), new event is created after timeout }"
         "{timeout t         |600   | Max recording time (sec), stops the recording process (= 10 mins)  }"
         "{mineventduration d |30   | min duration (sec) of event once recording is triggered on CamA (1st event is autotriggered) }"
-        "{timestamp ts      |true | use time stamp       }"
+        "{timestamp ts       |true | use time stamp       }"
         "{motiontriggered e  |false| Event Capture: Trigger recording  only when something large is moving in the scene (a fish) / Non-Conitnuous recording  }"
+        "{dualCam d         |false| Record from 2 cameras simulteneously (Dual-View Experiment Mode) }"
         ;
 
     cv::CommandLineParser parser(argc, argv, keys);
@@ -119,7 +120,7 @@ int main(int argc, char** argv)
     }
 
 
-    Mode k_fmt7ModeA     = MODE_1; //Default
+    Mode k_fmt7ModeA     = MODE_0; //Default
     Mode k_fmt7ModeB     = MODE_0; //Default
 
     int camAIdx          = (int)parser.get<int>("camAIdx");
@@ -130,7 +131,7 @@ int main(int argc, char** argv)
     float fshutterA      = parser.get<float>("camAshutter");
     float fFrameRateB    = parser.get<float>("camBfps");
     float fshutterB      = parser.get<float>("camBshutter");
-
+    bool bdualCam        = parser.get<bool>("dualCam");
     int iCrop                   = parser.get<int>("@crop");
     string soutFolder           = parser.get<string>("outputDir");
     outputType ioutputType      = parser.get<outputType>("outputType");
@@ -280,8 +281,8 @@ int main(int argc, char** argv)
    /// CAM B Repeat as Above//
    cv::VideoWriter* pVideoWriterB = 0;
 
-   //Connect to 2nd Cam If Exists
-   if (numCameras > 1)
+   //Connect to 2nd Cam If Exists and If User wants DUAL CAMERA Mode
+   if (numCameras > 1 && bdualCam)
    {
      cout << "Found 2nd Camera. Attempting to connect..." << std::endl;
      if (connectCam(busMgr,camB,camBIdx,fmt7InfoB) == 1)
