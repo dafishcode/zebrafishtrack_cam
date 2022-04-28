@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     const cv::String keys =
         "{help h usage ?    |      | print this help  message   }"
         "{outputDir         |<none>| Dir where To save output video/images and logs}"
-        "{outputType        | 1    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
+        "{outputType o      | 2    | 0->Image Sequence , 1-> Uncompressed Video file, 2-> Vid MPEG Compression, 3-> XVID Compression}"
         "{@crop             | 0    | ROI to crop images before save       }"
         "{camAmode Am       | 0     | Mode 1 is low Res high FPS}"
         "{camBmode Bm       | 0     | Mode 1 is low Res high FPS}"
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
         "{mineventduration d |30   | min duration (sec) of event once recording is triggered on CamA (1st event is autotriggered) }"
         "{timestamp ts       |true | use time stamp       }"
         "{motiontriggered e  |false| Event Capture: Trigger recording  only when something large is moving in the scene (a fish) / Non-Conitnuous recording  }"
-        "{dualCam d         |false| Record from 2 cameras simulteneously (Dual-View Experiment Mode) }"
+        "{dualCam            |true| Record from 2 cameras simulteneously (Dual-View Experiment Mode }"
         ;
 
     cv::CommandLineParser parser(argc, argv, keys);
@@ -134,7 +134,7 @@ int main(int argc, char** argv)
     bool bdualCam        = parser.get<bool>("dualCam");
     int iCrop                   = parser.get<int>("@crop");
     string soutFolder           = parser.get<string>("outputDir");
-    outputType ioutputType      = parser.get<outputType>("outputType");
+    outputType ioutputType      = (outputType)parser.get<int>("outputType");
     bool use_time_stamp         = parser.has("timestamp");
     // Read User set Recording durations for each event and the total recording
     uint uieventminduration         = parser.get<uint>("mineventduration");
@@ -334,7 +334,9 @@ int main(int argc, char** argv)
 
     /// Start Top Camera Recording Thread / BOOST Thread Version
     //using boost thread here as join is blocking
-    boost::thread T_REC_B(rec_onDisk_camB, boost::ref(RSC_input_camB) ) ;
+    boost::thread *T_REC_B = 0;
+    if (camB.IsConnected())
+        T_REC_B = new boost::thread(rec_onDisk_camB, boost::ref(RSC_input_camB) ) ;
 
 
     struct observer_thread_data ReaderFnArgs;
@@ -363,7 +365,9 @@ int main(int argc, char** argv)
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
     //pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
 
-    T_REC_B.detach();
+    if (T_REC_B)
+        T_REC_B->detach();
+
     pthread_detach(tidRec);
     pthread_detach(tidDisplay);
     //usleep(5000); //Pause For all activity to finish

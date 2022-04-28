@@ -21,11 +21,11 @@ INCLUDEPATH = \
     $$PWD/include \
     /usr/include/flycapture
 INCLUDEPATH += /usr/local//include/opencv4/
-INCLUDEPATH += `pkg-config --cflags opencv4`
+INCLUDEPATH += `pkg-config --cflags opencv`
 
 
 LIBS = -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system
-LIBS += `pkg-config --libs opencv4`
+LIBS += `pkg-config --libs opencv`
 
 
 #DEFINES = 
