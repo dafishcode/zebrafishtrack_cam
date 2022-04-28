@@ -686,13 +686,13 @@ void* rec_onDisk_camA(void *tdata)
 
 
     // Stop capturing images
-    error = RSC_input->cam->StopCapture();
-    if (error != PGRERROR_OK)
-    {
-         PrintError(error);
-         pthread_exit(0);
-         return NULL;
-    }
+    //error = RSC_input->cam->StopCapture();
+//    if (error != PGRERROR_OK)
+//    {
+//         PrintError(error);
+//         pthread_exit(0);
+//         return NULL;
+//    }
 	// Disconnect the camera
     error = RSC_input->cam->Disconnect();
 

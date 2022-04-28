@@ -13,6 +13,15 @@
 /// \param mineventduration
 /// \param mode 0/1 :  0 hres low fps,
 /// \example ./zebraprey_cam '/mnt/SSDFastDisk/camera/expDataDylan/tst15/' --fps=30 --timeout=40 --mineventduration=5 --cammode=0
+///
+///
+/// \note Problem when connecting to multiple cameras
+/// When streaming with multiple devices on Linux, when the program calls start_cameras the program will fail with errors such as an error for libusb_submit_transfer and similar-looking errors. Diving deeper, it becomes clear that a function within libusb is failing, returning ENOMEM indicating that the kernel is out of memory. The problem is that there's a setting (readable at /sys/module/usbcore/parameters/usbfs_memory_mb) that limits the amount of memory available for USB IO. However, some applications that require more intensive usage of that memory often use more than that. As documented at OpenKinect/libfreenect2#97, there is a fix for this: allocate more memory. I tried it with 32mb instead of 16 and it seems to be working (I ran into issues the first time I tested it but they seemed unrelated; documenting in case someone else runs into this).
+///  To fix on AMD64, using 32 mb instead of 16,
+/// Edit /etc/default/grub, replacing the line that says GRUB_CMDLINE_LINUX_DEFAULT="quiet splash" with GRUB_CMDLINE_LINUX_DEFAULT="quiet splash usbcore.usbfs_memory_mb=32"
+/// Run sudo update-grub
+/// Restart the computer
+
 ///*
 
 
@@ -116,8 +125,9 @@ int main(int argc, char** argv)
     if (parser.has("help"))
     {
         parser.printMessage();
-
+        exit(0);
         return 0;
+
     }
 
 
@@ -167,7 +177,7 @@ int main(int argc, char** argv)
     ///////////////////////////////
 
     /// Camera Discovery //
-   unsigned int numCameras;
+   unsigned int numCameras,iCamSN;
    error = busMgr.GetNumOfCameras(&numCameras);
    if (error != PGRERROR_OK)
    {
@@ -181,6 +191,9 @@ int main(int argc, char** argv)
         exit(-1);
    }else
        std::cout << "There N=" << numCameras << " cameras connected " << std::endl;
+
+   busMgr.GetCameraSerialNumberFromIndex(camAIdx,&iCamSN);
+   std::cout << "-->> User selected camIdx:" << camAIdx << " with S/N:" << iCamSN << "  <<--" << std::endl;
 
     ///Connect to 1st Camera
     if (connectCam(busMgr,camA,camAIdx,fmt7InfoA) == 1)
@@ -209,12 +222,12 @@ int main(int argc, char** argv)
 
     // Make OutputFolder and camA subfolder
     CreateOutputFolder(soutFolder);
-    CreateOutputFolder(soutFolder + "/camA/");
+    CreateOutputFolder(soutFolder + "/cam_" + std::to_string(camAIdx) + "/" );
 
     // Define the codec and create VideoWriter object
     //To save image sequence use a proper filename (eg. img_%02d.jpg) and fourcc=0 OR fps=0. Use uncompressed image format (eg. img_%02d.BMP) to save raw frames.
     //('M','J','P','G')
-    cv::VideoWriter* pVideoWriterA;
+    //cv::VideoWriter* pVideoWriterA;
     string stroutputfile = soutFolder;
 //    if (ioutputType == zCam_SEQIMAGES){
 //       stroutputfile = stroutputfile.append("/camA/img_%09d.bmp");
@@ -239,7 +252,7 @@ int main(int argc, char** argv)
     //Setup thread Event Triggered Cam A
     struct camera_thread_data RSC_input_camA;
     RSC_input_camA.cam               = &camA;
-    RSC_input_camA.proc_folder       = soutFolder + "/camA/";
+    RSC_input_camA.proc_folder       = soutFolder + "/cam_" + std::to_string(camBIdx) + "/";
     RSC_input_camA.display           = string("Bottom display (camA)");
     RSC_input_camA.crop              = iCrop;
     RSC_input_camA.MaxEventFrames =  fFrameRateA*uimaxeventduration_sec; //Calc Max Frames given camera FPS
@@ -281,7 +294,7 @@ int main(int argc, char** argv)
     }
 
    /// CAM B Repeat as Above//
-   cv::VideoWriter* pVideoWriterB = 0;
+   //cv::VideoWriter* pVideoWriterB = 0;
 
    //Connect to 2nd Cam If Exists and If User wants DUAL CAMERA Mode
    if (numCameras > 1 && bdualCam)
@@ -302,29 +315,29 @@ int main(int argc, char** argv)
      }
 
      // Make OutputFolder camB
-     CreateOutputFolder(soutFolder + "/camB/");
+         CreateOutputFolder(soutFolder + "/cam_" + std::to_string(camBIdx) + "/" );
 
-     string stroutputfile = soutFolder;
-     if (ioutputType == 1){
-          stroutputfile = stroutputfile.append("/camB/exp_video.avi");
-          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , fFrameRateA, cv::Size(640,512), true); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
-     }
-     if (ioutputType == 2){
-          stroutputfile = stroutputfile.append("/camB/exp_video_mpeg.avi");
-          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , fFrameRateA, cv::Size(640,512), true); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
-     }
+//     string stroutputfile = soutFolder;
+//     if (ioutputType == 1){
+//          stroutputfile = stroutputfile.append("/camB/exp_video.avi");
+//          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , fFrameRateA, cv::Size(640,512), true); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+//     }
+//     if (ioutputType == 2){
+//          stroutputfile = stroutputfile.append("/camB/exp_video_mpeg.avi");
+//          pVideoWriterB = new cv::VideoWriter(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , fFrameRateA, cv::Size(640,512), true); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+//     }
 
-     if (ioutputType == 0){
-         stroutputfile = stroutputfile.append("/camB/img_%07d.bmp");
-         pVideoWriterB = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024, 1024), false); //initialize the VideoWriter object
-       }
+//     if (ioutputType == 0){
+//         stroutputfile = stroutputfile.append("/camB/img_%07d.bmp");
+//         pVideoWriterB = new cv::VideoWriter(stroutputfile, 0, 0, cv::Size(1024, 1024), false); //initialize the VideoWriter object
+//       }
    }
 
 
     //Setup thread Constantly On Cam B
     struct camera_thread_data RSC_input_camB;
     RSC_input_camB.cam               = &camB;
-    RSC_input_camB.proc_folder       = soutFolder + "/camB/";
+    RSC_input_camB.proc_folder       = soutFolder + "/cam_" + std::to_string(camBIdx) + "/" ;
     RSC_input_camB.display           = string("Top display (camB)");
     RSC_input_camB.crop              = iCrop;
     RSC_input_camB.MaxEventFrames =  fFrameRateB*uimaxsessionduration_sec; //Calc Max Frames given camera FPS
@@ -341,7 +354,7 @@ int main(int argc, char** argv)
     ReaderFnArgs.mode           = 0; //How to Save File Mode
     ReaderFnArgs.proc_folder    = soutFolder;
     ReaderFnArgs.prefix0        = fixedLengthString(1,3);
-    ReaderFnArgs.windisplay     = RSC_input_camA.display;
+    ReaderFnArgs.windisplay     = RSC_input_camA.display + RSC_input_camA.proc_folder;
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
     ReaderFnArgs.timeout        = uimaxsessionduration_sec;
     ReaderFnArgs.pcircbufferA = &circ_buffer_camA; //So to Trigger Dumping of event Antecedent frames

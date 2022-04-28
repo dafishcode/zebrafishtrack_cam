@@ -113,6 +113,11 @@ public:
         mbwriting_buffer = br;
     }
 
+    string get_outputfolder() const
+    {
+        return mproc_folder;
+    }
+
     //Changing Output folder Resets The Video Stream - As this indicates a new event is being recorded the Buffer Is also Flushed
     void set_outputfolder(string sdir)
     {   slock lk(monitor);
