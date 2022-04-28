@@ -75,7 +75,8 @@ int main(int argc, char** argv)
     const PixelFormat k_fmt7PixFmt = PIXEL_FORMAT_RAW8;
     const PixelFormat k_fmt7PixFmt_Compressed = PIXEL_FORMAT_422YUV8_JPEG;      //= 0x40000001, /**< JPEG compressed stream. */
 
-    F7 f7;
+    F7 f7_camA;
+    F7 f7_camB;
     /// Handle Command Line Parameters //
     const cv::String keys =
         "{help h usage ?    |      | print this help  message   }"
@@ -185,10 +186,10 @@ int main(int argc, char** argv)
     if (connectCam(busMgr,camA,camAIdx,fmt7InfoA) == 1)
     {
         ///Set mode and Print Camera Info / In/Out Camera Fps Setting - Setting And Actual
-        SetCam(&camA,f7,k_fmt7ModeA,k_fmt7PixFmt,fFrameRateA,fshutterA);
+        SetCam(&camA,f7_camA,k_fmt7ModeA,k_fmt7PixFmt,fFrameRateA,fshutterA);
         ///Print CamA Mode Information
         camA.GetVideoModeAndFrameRate(&cVidModA,&cFpsA);
-        std::cout << "IDX:0 Current Camera Video Mode ////" << std::endl;
+        std::cout << "IDX:" << camAIdx << "  Current Camera Video Mode ////" << std::endl;
         std::cout << "Vid Mode :" << cVidModA << " Fps Mode Set: " << cFpsA << std::endl;
         // cam.SetVideoModeandFrameRate( VIDEOMODE_640x480Y8 , FRAMERATE_FORMAT7 );
          if ((k_fmt7PixFmt & fmt7InfoA.pixelFormatBitField) == 0)
@@ -266,13 +267,6 @@ int main(int argc, char** argv)
     //Rec_onDisk_SingleCamera2((void*)&RSC_input,cMaxFrames);
 
 
-//    //Start The Recording Thread - Continuous
-   if (pthread_create(&tidRec, NULL, &rec_onDisk_camA, (void *)&RSC_input_camA) != 0) {
-        printf("Oh Ohh... Thread for Camera recording Rec_onDisk_SingleCamera2 could not start :( \n");
-        camA.StopCapture();
-        camA.Disconnect();
-        return -1;
-    }
     //cv::namedWindow(RSC_input.display,cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
     //cv::resizeWindow(RSC_input.display, fmt7Info.maxHeight,fmt7Info.maxWidth);
 
@@ -288,10 +282,10 @@ int main(int argc, char** argv)
      if (connectCam(busMgr,camB,camBIdx,fmt7InfoB) == 1)
      {
          ///Set mode and Print Camera Info / In/Out Camera Fps Setting - Setting And Actual
-         SetCam(&camB,f7,k_fmt7ModeB,k_fmt7PixFmt,fFrameRateB,fshutterB);
+         SetCam(&camB,f7_camB,k_fmt7ModeB,k_fmt7PixFmt,fFrameRateB,fshutterB);
          ///Print CamA Mode Information
          camB.GetVideoModeAndFrameRate(&cVidModB,&cFpsB);
-         std::cout << "IDX:1 Current Camera Video Mode ////" << std::endl;
+         std::cout << "IDX:"<< camBIdx << " Current Camera Video Mode ////" << std::endl;
          std::cout << "Vid Mode :" << cVidModB << " Fps Mode Set: " << cFpsB << std::endl;
       // If COnnected to Cam B
      } else {
@@ -334,8 +328,6 @@ int main(int argc, char** argv)
 
     /// Start Top Camera Recording Thread / BOOST Thread Version
     //using boost thread here as join is blocking
-    boost::thread T_REC_B(rec_onDisk_camB, boost::ref(RSC_input_camB) ) ;
-
 
     struct observer_thread_data ReaderFnArgs;
     ReaderFnArgs.mode           = 0; //How to Save File Mode
@@ -347,6 +339,17 @@ int main(int argc, char** argv)
     ReaderFnArgs.pcircbufferA = &circ_buffer_camA; //So to Trigger Dumping of event Antecedent frames
     ReaderFnArgs.pcircbufferB = &circ_buffer_camB; //So to Trigger Dumping of event Antecedent frames
 
+
+
+    //    //Start The Recording Thread - Continuous
+    camA.StartCapture();
+   if (pthread_create(&tidRec, NULL, &rec_onDisk_camA, (void *)&RSC_input_camA) != 0) {
+        printf("Oh Ohh... Thread for Camera recording Rec_onDisk_SingleCamera2 could not start :( \n");
+        camA.StopCapture();
+        camA.Disconnect();
+        return -1;
+    }
+
     ///\note cv:imshow functions need to be run from same thread - otherwise opencv hangs
     if (pthread_create(&tidDisplay, NULL, &camViewEventTrigger, (void *)&ReaderFnArgs) != 0) {
         printf("Oh Ohh... Thread for Camera Display ReadImageSeq could not start :( \n");
@@ -356,6 +359,13 @@ int main(int argc, char** argv)
     }
 
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
+    if (bdualCam){
+
+        boost::thread T_REC_B(rec_onDisk_camB, boost::ref(RSC_input_camB) ) ;
+        camB.StartCapture();
+        //T_REC_B.detach();
+    }
+
 
     //if(T_REC_B.joinable()) //Cam B
     //    T_REC_B.join();
@@ -363,7 +373,8 @@ int main(int argc, char** argv)
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
     //pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
 
-    T_REC_B.detach();
+
+
     pthread_detach(tidRec);
     pthread_detach(tidDisplay);
     //usleep(5000); //Pause For all activity to finish

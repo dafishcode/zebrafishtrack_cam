@@ -244,7 +244,7 @@ public:
             if(frame_index[i] > lri){
                 // Writing to file
                 //cv::imwrite(filename.str().c_str(),);
-                if (mbrecording_state)
+                if (mbrecording_state && !circ_buff_img[i].empty())
                 {
                     moVideowriter.write(circ_buff_img[i]);
                     *mstreamlogfile << logstring[i];//frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;
