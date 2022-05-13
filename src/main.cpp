@@ -252,7 +252,7 @@ int main(int argc, char** argv)
     //Setup thread Event Triggered Cam A
     struct camera_thread_data RSC_input_camA;
     RSC_input_camA.cam               = &camA;
-    RSC_input_camA.proc_folder       = soutFolder + "/cam_" + std::to_string(camBIdx) + "/";
+    RSC_input_camA.proc_folder       = soutFolder + "/cam_" + std::to_string(camAIdx) + "/";
     RSC_input_camA.display           = string("Bottom display (camA)");
     RSC_input_camA.crop              = iCrop;
     RSC_input_camA.MaxEventFrames =  fFrameRateA*uimaxeventduration_sec; //Calc Max Frames given camera FPS

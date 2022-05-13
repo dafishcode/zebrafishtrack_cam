@@ -31,6 +31,7 @@ extern sem_t semImgFishDetected; //There is a fish In the scene lock
 extern bool bImgCaptured;/// Global Flag indicating new Image Has been captured by camera
 extern bool gbEventRecording; //Glag That Images Are being saved
 extern bool gbtimeoutreached; //Glag That Images Are being saved
+//extern class circular_video_buffer_ts;
 
 class ioparam {
 	public:

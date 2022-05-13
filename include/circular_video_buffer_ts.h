@@ -7,14 +7,20 @@
 #include <boost/thread.hpp>
 #include <boost/circular_buffer.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/filesystem.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <signal.h>
 
 #include "aux.h"
-#include "util.h"
+//#include "util.h"
 // Thread safe circular buffer
 
+//#include <QFile>
+//#include <QFileInfo>
+//#include <QString>
+//#include <QDir>
+#include <filesystem>
 
 enum outputType {zCam_SEQIMAGES = 0,
                    zCam_RAWVID = 1,
@@ -121,6 +127,7 @@ public:
     //Changing Output folder Resets The Video Stream - As this indicates a new event is being recorded the Buffer Is also Flushed
     void set_outputfolder(string sdir)
     {   slock lk(monitor);
+
         if (sdir != mproc_folder)
         {
             mproc_folder = sdir;
@@ -150,21 +157,26 @@ public:
         else
             mszFrame = cv::Size(circ_buff_img[0].cols,circ_buff_img[0].rows);
 
-        string stroutputfile;
+        //QDir outDir( QString::fromStdString(mproc_folder) );
+
+        auto p = boost::filesystem::path(mproc_folder);
+        // Make Filename From FolderName -- Assume No trailing /
+        string stroutputfile = mproc_folder + string("/") + (p.parent_path().parent_path().filename().string() );
+
         if (moutputType == zCam_SEQIMAGES){
-           stroutputfile = mproc_folder + string("/img_%09d.bmp");
+           stroutputfile = stroutputfile + string("_%09d.bmp");
            bOpened = moVideowriter.open(stroutputfile, 0, 0, mszFrame, false); //initialize the VideoWriter object
          }
         if (moutputType == zCam_RAWVID){
-             stroutputfile = mproc_folder + string("/exp_video_y800.avi");
+             stroutputfile = stroutputfile + string("_y800.avi");
              bOpened =moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , mvidfps, mszFrame, false); //initialize the VideoWriter object //('Y','8','0','0') cv::VideoWriter::fourcc('M','J','P','G') cv::VideoWriter::fourcc('X','V','I','D')
         }
          if (moutputType == zCam_MJPGVID){
-              stroutputfile = mproc_folder + string("/exp_video_mpeg.avi");
+              stroutputfile = stroutputfile + string("_mpeg.avi");
               bOpened = moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , mvidfps, mszFrame, false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
          }
          if (moutputType == zCam_XVID){
-              stroutputfile = mproc_folder + string("/exp_video_xvid.avi");
+              stroutputfile = stroutputfile + string("/_xvid.avi");
               bOpened = moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , mvidfps, mszFrame, false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
          }
         if (bOpened)
