@@ -161,7 +161,10 @@ public:
 
         auto p = boost::filesystem::path(mproc_folder);
         // Make Filename From FolderName -- Assume No trailing /
-        string stroutputfile = mproc_folder + string("/") + (p.parent_path().parent_path().filename().string() );
+        string strExpFolderName = (p.parent_path().parent_path().parent_path().filename().string() );
+        string strExpTestConditionName = (p.parent_path().parent_path().filename().string() );
+        string strExpRecEventNumber =  (p.filename().string() );
+        string stroutputfile = mproc_folder + string("/") + strExpFolderName + "_" + strExpTestConditionName + "_" + strExpRecEventNumber;
 
         if (moutputType == zCam_SEQIMAGES){
            stroutputfile = stroutputfile + string("_%09d.bmp");
