@@ -299,6 +299,7 @@ void SetCam(Camera *cam, F7 &f7, const Mode k_fmt7Mode, const PixelFormat k_fmt7
      cout << "Shutter time set to " << fixed << k_shutterVal << "ms" << endl;
 
      /// Start capturing images
+     cout << "-- STARTING CAPTURE --" << endl;
      error = cam->StartCapture();
      if (error != PGRERROR_OK)
      {
@@ -685,13 +686,13 @@ void* rec_onDisk_camA(void *tdata)
 
 
     // Stop capturing images
-    error = RSC_input->cam->StopCapture();
-    if (error != PGRERROR_OK)
-    {
-         PrintError(error);
-         pthread_exit(0);
-         return NULL;
-    }
+    //error = RSC_input->cam->StopCapture();
+//    if (error != PGRERROR_OK)
+//    {
+//         PrintError(error);
+//         pthread_exit(0);
+//         return NULL;
+//    }
 	// Disconnect the camera
     error = RSC_input->cam->Disconnect();
 

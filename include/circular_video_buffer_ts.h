@@ -7,14 +7,20 @@
 #include <boost/thread.hpp>
 #include <boost/circular_buffer.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/filesystem.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <signal.h>
 
 #include "aux.h"
-#include "util.h"
+//#include "util.h"
 // Thread safe circular buffer
 
+//#include <QFile>
+//#include <QFileInfo>
+//#include <QString>
+//#include <QDir>
+#include <filesystem>
 
 enum outputType {zCam_SEQIMAGES = 0,
                    zCam_RAWVID = 1,
@@ -35,7 +41,7 @@ public:
 
     circular_video_buffer_ts() {}
 
-    circular_video_buffer_ts(int n, string pf,ofstream* lf, outputType filetype=outputType::zCam_RAWVID, double vidfps = 0.0) {
+    circular_video_buffer_ts(int n, string pf,ofstream* lf, outputType filetype=zCam_RAWVID, double vidfps = 0.0) {
         circ_buff_img.set_capacity(n);
         frame_index.set_capacity(n);
         time_index.set_capacity(n);
@@ -113,9 +119,15 @@ public:
         mbwriting_buffer = br;
     }
 
+    string get_outputfolder() const
+    {
+        return mproc_folder;
+    }
+
     //Changing Output folder Resets The Video Stream - As this indicates a new event is being recorded the Buffer Is also Flushed
     void set_outputfolder(string sdir)
     {   slock lk(monitor);
+
         if (sdir != mproc_folder)
         {
             mproc_folder = sdir;
@@ -139,31 +151,41 @@ public:
     // Opens New Video file on the current output folder File
     bool openNewVideoStream()
     {
-
+        bool bOpened = false;
         if (circ_buff_img.size() == 0)
             mszFrame = cv::Size(640,512); //Default Size
         else
             mszFrame = cv::Size(circ_buff_img[0].cols,circ_buff_img[0].rows);
 
-        string stroutputfile;
-        if (moutputType == outputType::zCam_SEQIMAGES){
-           stroutputfile = mproc_folder.append("/img_%09d.bmp");
-           moVideowriter.open(stroutputfile, 0, 0, mszFrame, false); //initialize the VideoWriter object
-         }
-        if (moutputType == outputType::zCam_RAWVID){
-             stroutputfile = mproc_folder.append("/exp_video_y800.avi");
-             moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , mvidfps, mszFrame, false); //initialize the VideoWriter object //('Y','8','0','0') cv::VideoWriter::fourcc('M','J','P','G') cv::VideoWriter::fourcc('X','V','I','D')
-        }
-         if (moutputType == outputType::zCam_MJPGVID){
-              stroutputfile = mproc_folder.append("/exp_video_mpeg.mp4");
-              moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , mvidfps, mszFrame, false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
-         }
-         if (moutputType == outputType::zCam_XVID){
-              stroutputfile = mproc_folder.append("/exp_video_xvid.mp4");
-              moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , mvidfps, mszFrame, false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
-         }
+        //QDir outDir( QString::fromStdString(mproc_folder) );
 
-         cout << "New output file:" <<  stroutputfile <<std::endl;
+        auto p = boost::filesystem::path(mproc_folder);
+        // Make Filename From FolderName -- Assume No trailing /
+        string strExpFolderName = (p.parent_path().parent_path().parent_path().filename().string() );
+        string strExpTestConditionName = (p.parent_path().parent_path().filename().string() );
+        string strExpRecEventNumber =  (p.filename().string() );
+        string stroutputfile = mproc_folder + string("/") + strExpFolderName + "_" + strExpTestConditionName + "_" + strExpRecEventNumber;
+
+        if (moutputType == zCam_SEQIMAGES){
+           stroutputfile = stroutputfile + string("_%09d.bmp");
+           bOpened = moVideowriter.open(stroutputfile, 0, 0, mszFrame, false); //initialize the VideoWriter object
+         }
+        if (moutputType == zCam_RAWVID){
+             stroutputfile = stroutputfile + string("_y800.avi");
+             bOpened =moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('Y','8','0','0') , mvidfps, mszFrame, false); //initialize the VideoWriter object //('Y','8','0','0') cv::VideoWriter::fourcc('M','J','P','G') cv::VideoWriter::fourcc('X','V','I','D')
+        }
+         if (moutputType == zCam_MJPGVID){
+              stroutputfile = stroutputfile + string("_mpeg.avi");
+              bOpened = moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('M','J','P','G') , mvidfps, mszFrame, false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+         }
+         if (moutputType == zCam_XVID){
+              stroutputfile = stroutputfile + string("/_xvid.avi");
+              bOpened = moVideowriter.open(stroutputfile, cv::VideoWriter::fourcc('X','V','I','D') , mvidfps, mszFrame, false); //initialize the VideoWriter object cv::VideoWriter::fourcc('Y','8','0','0')
+         }
+        if (bOpened)
+            cout << "New output file:" <<  stroutputfile <<std::endl;
+        else
+            cerr << "Failed to open output file :" <<  stroutputfile <<std::endl;
 
          return (moVideowriter.isOpened());
     }
@@ -236,14 +258,15 @@ public:
             slock lk(monitor);
             mbwriting_buffer=true;
             lri=idx_last_recorded; //save idx of most recently exported/saved img to file
-            cout<<"writeNewFramesToVideostream: writing buffer to vid for fidx>"<< lri <<endl;
+            if(mbverbose)
+                cout<<"writeNewFramesToVideostream: writing buffer to vid for fidx>"<< lri <<endl;
         }
 
         for(i=0;i < circ_buff_img.size();i++){
             if(frame_index[i] > lri){
                 // Writing to file
                 //cv::imwrite(filename.str().c_str(),);
-                if (mbrecording_state)
+                if (mbrecording_state && !circ_buff_img[i].empty())
                 {
                     moVideowriter.write(circ_buff_img[i]);
                     *mstreamlogfile << logstring[i];//frame_index[i] << '\t' <<time_index[i]<<'\t'<<cv::getTickFrequency() << endl;

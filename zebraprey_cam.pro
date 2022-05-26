@@ -2,6 +2,8 @@
 # You may attempt to use it for building too, by modifying this file here.
 
 #TARGET = zebraprey_cam
+TEMPLATE = app
+QT += widgets gui qml quick testlib
 
 HEADERS = \
    $$PWD/include/util.h \
@@ -24,7 +26,7 @@ INCLUDEPATH += /usr/local//include/opencv4/
 INCLUDEPATH += `pkg-config --cflags opencv4`
 
 
-LIBS = -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system
+LIBS = -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system -lboost_filesystem
 LIBS += `pkg-config --libs opencv4`
 
 
