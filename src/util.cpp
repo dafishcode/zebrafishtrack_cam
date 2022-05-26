@@ -344,7 +344,7 @@ void CreateOutputFolder(string folder){
         const int dir_err = mkdir(folder.c_str(),0777);
         if ( dir_err == -1){
 
-            std::cerr <<  dir_err << " Error creating directory!: " << folder << std::endl;
+            std::cerr <<  dir_err << " Error creating directory: " << folder << " \t"  std::endl;
             //perror(argv[0]);
             //exit(1);
             return;
