@@ -21,7 +21,7 @@
 /// Edit /etc/default/grub, replacing the line that says GRUB_CMDLINE_LINUX_DEFAULT="quiet splash" with GRUB_CMDLINE_LINUX_DEFAULT="quiet splash usbcore.usbfs_memory_mb=32"
 /// Run sudo update-grub
 /// Restart the computer
-
+/// \bug Starts new events even in Continuous recording mode
 ///*
 
 
