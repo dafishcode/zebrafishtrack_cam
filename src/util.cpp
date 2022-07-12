@@ -29,12 +29,13 @@ using namespace std;
 using namespace FlyCapture2;
 
 
-bool run=true;
+bool run    =true;
 boost::mutex mtx;
 
 bool gbtimeoutreached =  false; //Global Flag used from readImSeq to stop RecOnDisc from Starting a new recording
-bool gbEventRecording =  false; //Global Variable Indicating Files are saved to disk
-bool gbrun            =  true; //Global Flag CAn Be Altered by Signal Handler
+bool gbRecStarted     = false; //Global Flag - User has started the Experiment Recording And Overall Timer has initiated
+bool gbEventRecording = false; //Global Variable Indicating Files are saved to disk
+bool gbrun            = true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
 extern uint uiEventMinDuration; //min duration for an event (if nothing shows up in view)
@@ -465,7 +466,7 @@ void* rec_onDisk_camB(camera_thread_data &RSC_input)
         // Normally gbtimeoutreached will signal end - Here is an additional internal Stop Condition Based on estimated total Frame count
         if((cv::getTickCount()-initial_time)/1e9 > RSC_input.MinEventframes){
             mtx.lock();
-            run=false;
+            gbrun=false;
             mtx.unlock();
         }
 
@@ -541,7 +542,7 @@ void* rec_onDisk_camA(void *tdata)
     ms0            = cv::getTickCount();
 
     int64 TimeStamp_microseconds_start = 0;
-
+    int64 TimeStamp_microseconds = 0;
     while(gbrun){
 
         if (!RSC_input->cam->IsConnected())
@@ -553,19 +554,20 @@ void* rec_onDisk_camA(void *tdata)
         //Convert to openCV Matrix - No Need
         cv::Mat cvm(rawImage.GetRows(),rawImage.GetCols(),CV_8U,(void*)data);
 
-        /// TimeStamps -
+        if (!gbRecStarted){ //Not started yet - Freeze Time
+             TimeStamp_microseconds_start = 0;
+        }else{
+            /// TimeStamps -
             // Add milliseconds timestamp to image frame
             TimeStamp tsmp_cam = rawImage.GetTimeStamp(); //count restart for microseconds
-            int64 TimeStamp_microseconds = tsmp_cam.seconds*1e6+tsmp_cam.microSeconds-TimeStamp_microseconds_start;
+            TimeStamp_microseconds = tsmp_cam.seconds*1e6+tsmp_cam.microSeconds-TimeStamp_microseconds_start;
             if (TimeStamp_microseconds_start == 0){
                 TimeStamp_microseconds_start = TimeStamp_microseconds;
                 TimeStamp_microseconds = 0;
             }
-
             sprintf(buff,"%06.2f",((double)TimeStamp_microseconds/1000.0) );
             cv::putText(cvm,buff,cv::Point(cvm.cols-135,cvm.rows-10),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
-            //sprintf(buff,"%d",tsmp_cam.cycleCount);
-            //cv::putText(cvm,buff,cv::Point(cvm.cols-75,cvm.rows-8),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(50,200,50));
+        }
 
             time_t now = time (0);
             sTm = gmtime (&now);
@@ -607,7 +609,7 @@ void* rec_onDisk_camA(void *tdata)
 //	    }
 
         //Save to Disk If Recording is triggered
-        if (gbEventRecording)
+        if (gbEventRecording && gbRecStarted)
         {
             nEventfrmCamA++;
 
@@ -774,10 +776,6 @@ void *camViewEventTrigger(void* tdata){
             "* Press s to start recording and q to exit." << endl;
 
     char c          = '1';
-    while(c!='s')
-        c=cv::waitKey(100);
-
-
     double tstart   = (double)cv::getTickCount();
     double t        = 0;
     double lastRept = 0;
@@ -786,6 +784,15 @@ void *camViewEventTrigger(void* tdata){
 
     while(c!='q' && (t < (Reader_input->timeout+1) || gbEventRecording)){
         c=cv::waitKey(20);
+        if (c=='s') //User Initiated Recording
+        {
+            gbRecStarted = true;
+            sem_post(&semImgFishDetected); //Trigger an Initial Event By Default
+        }
+
+        if (!gbRecStarted)
+            tstart   = (double)cv::getTickCount(); //Recording Not Started Freeze time To Now -
+
         t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 
         if (t > 1 && (t-lastRept)>60 )
