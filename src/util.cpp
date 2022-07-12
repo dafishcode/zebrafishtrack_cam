@@ -33,7 +33,7 @@ bool run=true;
 boost::mutex mtx;
 
 bool gbtimeoutreached =  false; //Global Flag used from readImSeq to stop RecOnDisc from Starting a new recording
-bool gbEventRecording      =  false; //Global Variable Indicating Files are saved to disk
+bool gbEventRecording =  false; //Global Variable Indicating Files are saved to disk
 bool gbrun            =  true; //Global Flag CAn Be Altered by Signal Handler
 unsigned int gFrameRate; //Global Var Holding FrameRate Read from Camera
 
@@ -345,7 +345,7 @@ void CreateOutputFolder(string folder){
         const int dir_err = mkdir(folder.c_str(),0777);
         if ( dir_err == -1){
 
-            std::cerr <<  dir_err << " Error creating directory: " << folder << " \t"  std::endl;
+            std::cerr <<  dir_err << " Error creating directory: " << folder << " \t" <<  std::endl;
             //perror(argv[0]);
             //exit(1);
             return;
@@ -644,8 +644,8 @@ void* rec_onDisk_camA(void *tdata)
         sem_getvalue(&semImgFishDetected, &fishFlag);
         //sem_wait(semImgFishDetected); //Wait Until Fish Is detected
         if (fishFlag == 0 && gbEventRecording) //there are no fish currently stop Recording
-        { //Enforce A wait Before Stop Recording
-           if (fishTimeout < 1)
+        { //In MotionEvent Triggered Enforce A wait Before Stopping Event Recording
+           if (fishTimeout < 1 && gbeventtriggered)
            {
                 gbEventRecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
                 RSC_input->pcircbuffer->set_recorder_state(gbEventRecording);
@@ -655,11 +655,10 @@ void* rec_onDisk_camA(void *tdata)
                fishTimeout--;
        }
 
-        //Fish Just Appeared - Count Event And Start Recording
+        //Fish Just Appeared & in Motion Event Trigger mode - Count Event And Start Recording
         /// Check Recording Period Has not timedout
-        if (fishFlag > 0 && !gbEventRecording && !gbtimeoutreached)
+        if (fishFlag > 0 && !gbEventRecording && !gbtimeoutreached && gbeventtriggered)
         {
-
 
             fishTimeout         =  RSC_input->MinEventframes; //rESET tIMER
             //Make New    Sub Directory Of Next Recording
@@ -711,9 +710,8 @@ void* rec_onDisk_camA(void *tdata)
     return 0;
 }
 
-/// \brief Displays Captured Image / Detects Fish Automatically and signals Recording
-/// Called after recording is finished - this function shows each recorded image and allows to move through
-/// using keypress-
+/// \brief Displays Captured Image / Detects Fish Automatically and signals Recording events that timeout after a period of inactivity
+/// Pressing r triggers an event trigger manually
 ///
 void *camViewEventTrigger(void* tdata){
     const double dBGLearningRate = 0.001;
@@ -772,10 +770,16 @@ void *camViewEventTrigger(void* tdata){
     gframeMask.convertTo(gframeMask,CV_8UC1);
 
 
-    cout << "Reading image sequence. Press q to exit." << endl;
-    char c='1';
-    double tstart = (double)cv::getTickCount();
-    double t = 0;
+    cout << "Reading image sequence into buffer. " << endl <<
+            "* Press s to start recording and q to exit." << endl;
+
+    char c          = '1';
+    while(c!='s')
+        c=cv::waitKey(100);
+
+
+    double tstart   = (double)cv::getTickCount();
+    double t        = 0;
     double lastRept = 0;
 
     std::cout << std::setprecision(4) << (Reader_input->timeout-t)/60.0 << " minutes left" << std::endl;
@@ -912,95 +916,3 @@ void *camViewEventTrigger(void* tdata){
 }
 
 
-/*
-int Run_SingleCamera(PGRGuid guid)
-{
-
-    Error error;    
-
-    // Connect to a camera
-    Camera cam;
-    cam.Connect(&guid);
-
-    // Get the camera configuration
-    FC2Config config;
-    error = cam.GetConfiguration(&config);
-
-    // Set the number of driver buffers used to 20.
-    config.numBuffers = 10;
-
-    // Set the camera configuration
-    cam.SetConfiguration(&config);
-
-    CameraInfo cInfo;
-    cam.GetCameraInfo(&cInfo);
-    PrintCameraInfo(&cInfo);
-
-    // Set format7 custom mode
-    const Mode k_fmt7Mode = MODE_1;
-    const PixelFormat k_fmt7PixFmt = PIXEL_FORMAT_RAW8;
-
-    Format7Info fmt7Info;
-    bool supported;
-    fmt7Info.mode=k_fmt7Mode;
-    cam.GetFormat7Info(&fmt7Info, &supported);
-    PrintFormat7Capabilities(fmt7Info);
-
-    Format7ImageSettings fmt7ImageSettings;
-    fmt7ImageSettings.mode = k_fmt7Mode;
-    fmt7ImageSettings.offsetX = 0;
-    fmt7ImageSettings.offsetY = 0;
-    fmt7ImageSettings.width = fmt7Info.maxWidth;
-    fmt7ImageSettings.height = fmt7Info.maxHeight;
-    fmt7ImageSettings.pixelFormat = k_fmt7PixFmt;
-
-    bool valid;
-    Format7PacketInfo fmt7PacketInfo;
-
-    cam.ValidateFormat7Settings(&fmt7ImageSettings, &valid, &fmt7PacketInfo);
-
-    cam.SetFormat7Configuration(&fmt7ImageSettings, fmt7PacketInfo.recommendedBytesPerPacket);   
-
-    // Start capturing images
-    cam.StartCapture();
-
-    Image rawImage;
-    namedWindow(ZR_WINDOWNAME,cv::WINDOW_NORMAL);
-    while (cv::waitKey(30)!='q')
-    {
-        // Retrieve an image
-        cam.RetrieveBuffer(&rawImage);
-
-        // Create a converted image
-        Image convertedImage=rawImage;
-
-        // Convert the raw image
-        //rawImage.Convert(PIXEL_FORMAT_MONO8, &convertedImage);
-        
-        unsigned char* data = convertedImage.GetData();
-        cv::Mat cvm(convertedImage.GetRows(),convertedImage.GetCols(),CV_8U,(void*)data);
-        cv::transpose(cvm,cvm);
-        cv::imshow(ZR_WINDOWNAME,cvm);
-
-    }
-
-    // Stop capturing images
-    error = cam.StopCapture();
-    if (error != PGRERROR_OK)
-    {
-        cout<<"ERROR!";
-        return -1;
-    }
-
-    // Disconnect the camera
-    error = cam.Disconnect();
-    if (error != PGRERROR_OK)
-    {
-        cout<<"ERROR!";
-        return -1;
-    }
-
-    return 0;
-}
-
-*/

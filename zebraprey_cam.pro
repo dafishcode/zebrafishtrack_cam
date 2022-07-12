@@ -26,7 +26,7 @@ INCLUDEPATH += /usr/local//include/opencv4/
 INCLUDEPATH += `pkg-config --cflags opencv4`
 
 
-LIBS = -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system -lboost_filesystem
+LIBS = -L/usr/local/lib -lflycapture -lpthread -lboost_thread -lboost_system -lboost_filesystem -lopencv_imgcodecs
 LIBS += `pkg-config --libs opencv4`
 
 
