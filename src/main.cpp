@@ -277,7 +277,7 @@ int main(int argc, char** argv)
 
     //init Semaphore
     sem_init(&semImgCapCount,0,0);
-    sem_init(&semImgFishDetected,0,1); //Initially In Run
+    sem_init(&semImgFishDetected,0,0); //Initially In Wait - Not Run
 
     //Make Mask
     ///Draw ROI Mask
