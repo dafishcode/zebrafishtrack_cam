@@ -14,9 +14,13 @@
 /// \param mode 0/1 :  0 hres low fps,
 /// \example ./zebraprey_cam '/mnt/SSDFastDisk/camera/expDataDylan/tst15/' --fps=30 --timeout=40 --mineventduration=5 --cammode=0
 ///
+/// \note Press r to manually trigger the recording of a new event
+/// \note Press s to start the timer and overall recording of the experiment
 ///
-/// \note Problem when connecting to multiple cameras
-/// When streaming with multiple devices on Linux, when the program calls start_cameras the program will fail with errors such as an error for libusb_submit_transfer and similar-looking errors. Diving deeper, it becomes clear that a function within libusb is failing, returning ENOMEM indicating that the kernel is out of memory. The problem is that there's a setting (readable at /sys/module/usbcore/parameters/usbfs_memory_mb) that limits the amount of memory available for USB IO. However, some applications that require more intensive usage of that memory often use more than that. As documented at OpenKinect/libfreenect2#97, there is a fix for this: allocate more memory. I tried it with 32mb instead of 16 and it seems to be working (I ran into issues the first time I tested it but they seemed unrelated; documenting in case someone else runs into this).
+/// \attention When streaming with multiple devices on Linux, when the program calls start_cameras the program will fail with errors such as an error for libusb_submit_transfer and similar-looking errors.
+///  Diving deeper, it becomes clear that a function within libusb is failing, returning ENOMEM indicating that the kernel is out of memory.
+/// The problem is that there's a setting (readable at /sys/module/usbcore/parameters/usbfs_memory_mb) that limits the amount of memory available for USB IO.
+///  However, some applications that require more intensive usage of that memory often use more than that. As documented at OpenKinect/libfreenect2#97, there is a fix for this: allocate more memory. I tried it with 32mb instead of 16 and it seems to be working (I ran into issues the first time I tested it but they seemed unrelated; documenting in case someone else runs into this).
 ///  To fix on AMD64, using 32 mb instead of 16,
 /// Edit /etc/default/grub, replacing the line that says GRUB_CMDLINE_LINUX_DEFAULT="quiet splash" with GRUB_CMDLINE_LINUX_DEFAULT="quiet splash usbcore.usbfs_memory_mb=32"
 /// Run sudo update-grub
@@ -105,7 +109,7 @@ int main(int argc, char** argv)
         "{mineventduration d |30   | min duration (sec) of event once recording is triggered on CamA (1st event is autotriggered) }"
         "{timestamp ts       |true | use time stamp       }"
         "{motiontriggered e  |false| Event Capture: Trigger recording  only when something large is moving in the scene (a fish) / Non-Conitnuous recording  }"
-        "{dualCam            |true| Record from 2 cameras simulteneously (Dual-View Experiment Mode }"
+        "{dualCam            |false| Record from 2 cameras simulteneously (Dual-View Experiment Mode }"
         ;
 
     cv::CommandLineParser parser(argc, argv, keys);
@@ -115,10 +119,12 @@ int main(int argc, char** argv)
     ssMsg<<"Camera controller for Zebrafish Experiments using the Cameleon3 FLIR camera."<<endl;
     ssMsg<<"V1.1 Upgraded to Dual-camera capture (2021)."<<endl;
     ssMsg<<"V1.2 Upgraded to direct video export (2022)."<<endl;
-    ssMsg<<"--------------------------"<<endl;
+    ssMsg<<"--------------------------" << endl;
     ssMsg<<"Author : Kontantinos Lagogiannis 2017"<<endl;
-    ssMsg<<"./Rec_onDisk <MODE=1> <outfolder> <outputFormat='avi'> <crop=0> <camAfps=450> <timeout=600sec> <timestamp=false>"<<endl;
+    ssMsg<<"./Rec_onDisk <MODE=1> <outfolder> <outputFormat='avi'> <crop=0> <camAfps=60> <timeout=600sec> <timestamp=false>"<<endl;
     ssMsg<<"(note: folder is automatically generated when absent)"<<endl;
+    ssMsg<<" * Press s to start recording until timeout exceeded "<< endl;
+    ssMsg<<" * In event trigger mode, press r to manually trigger an event "<< endl;
 
     parser.about(ssMsg.str() );
 
@@ -292,6 +298,8 @@ int main(int argc, char** argv)
         camA.Disconnect();
         return -1;
     }
+   /// END OF CAM A //
+
 
    /// CAM B Repeat as Above//
    //cv::VideoWriter* pVideoWriterB = 0;
@@ -340,9 +348,9 @@ int main(int argc, char** argv)
     RSC_input_camB.proc_folder       = soutFolder + "/cam_" + std::to_string(camBIdx) + "/" ;
     RSC_input_camB.display           = string("Top display (camB)");
     RSC_input_camB.crop              = iCrop;
-    RSC_input_camB.MaxEventFrames =  fFrameRateB*uimaxsessionduration_sec; //Calc Max Frames given camera FPS
+    RSC_input_camB.MaxEventFrames     =  fFrameRateB*uimaxsessionduration_sec; //Calc Max Frames given camera FPS
     RSC_input_camB.MinEventframes     =  (uint)(uimaxsessionduration_sec*fFrameRateB); //min duration of an event in frames
-    RSC_input_camB.eventCount       = 0;//IMg Detection will increment this
+    RSC_input_camB.eventCount         = 0;//IMg Detection will increment this
 
     circular_video_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile,ioutputType,fFrameRateB);
     RSC_input_camB.pcircbuffer = &circ_buffer_camB;
@@ -363,13 +371,13 @@ int main(int argc, char** argv)
 
 
 
-    ///\note cv:imshow functions need to be run from same thread - otherwise opencv hangs
     if (pthread_create(&tidDisplay, NULL, &camViewEventTrigger, (void *)&ReaderFnArgs) != 0) {
         printf("Oh Ohh... Thread for Camera Display ReadImageSeq could not start :( \n");
         camA.StopCapture();
         camA.Disconnect();
         return -1;
     }
+
 
     //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
     boost::thread *T_REC_B = 0;
@@ -384,9 +392,9 @@ int main(int argc, char** argv)
 
     //if(T_REC_B.joinable()) //Cam B
     //    T_REC_B.join();
-    //Only need the monitor thread to join/ exit for programme to stop
+    //need the monitor both threads to join/ exit for the programme to stop Normally - Otherwise Mutex may be locked
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
-    //pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
+    pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
 
 
     if (T_REC_B)
@@ -395,22 +403,6 @@ int main(int argc, char** argv)
     pthread_detach(tidRec);
     pthread_detach(tidDisplay);
     //usleep(5000); //Pause For all activity to finish
-
-
-
-    //pthread_kill(tidRec,SIGTERM); //Stop The recording Thread
-//    char c = 0;
-    //Set TimeOut
-//    double tstart = (double)cv::getTickCount();
-//    double t=0;
-//    char c;
-//    //Wait Until Time Or q pressed
-//    while(c!='q' && t < uiTimeOutSec){
-//        t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
-//        //What for Quit
-
-//        c=cv::waitKey(1000);
-//    }
 
 
     sem_destroy(&semImgCapCount);
