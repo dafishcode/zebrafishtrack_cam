@@ -638,7 +638,9 @@ void* rec_onDisk_camA(void *tdata)
         // Check Limits (Integer limits and maximum event duration limits)
         if (ULONG_MAX == nEventfrmCamA || (nEventfrmCamA == cMaxEventFrames && gbEventRecording ) )
         {   std::cerr << "Limit Of Event Period Reached / End Recording of this event.";
-            gbEventRecording = false;
+            mtx.lock();
+             gbEventRecording = false;
+            mtx.unlock();
             RSC_input->pcircbuffer->set_recorder_state(false);
             std::cout << "Event Mean Rec fps " << fixed << 1.0/(dmFps / (nEventfrmCamA+1)) << std::endl;
         }
@@ -651,7 +653,9 @@ void* rec_onDisk_camA(void *tdata)
         { //In MotionEvent Triggered Enforce A wait Before Stopping Event Recording
            if (fishTimeout < 1 && gbeventtriggered)
            {
-                gbEventRecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
+                mtx.lock();
+                 gbEventRecording = false; //sTOP rECORDING aFTER tIMEOUT pERDIOD
+                mtx.unlock();
                 RSC_input->pcircbuffer->set_recorder_state(gbEventRecording);
                 std::cout << "Event "<< RSC_input->eventCount << " Duration:" << dmFps << " sec, Mean Rec fps " << fixed << 1.0/(dmFps / (nfrmCamA+1))<< std::endl;
            }
@@ -661,7 +665,9 @@ void* rec_onDisk_camA(void *tdata)
 
         /// Fish Event Triggered mode - Count Event And Start Recording
         /// Check Recording Period Has not timedout
-        if (fishFlag > 0 && !gbEventRecording && !gbtimeoutreached && gbeventtriggered)
+        if ((fishFlag > 0 && !gbEventRecording && !gbtimeoutreached ||
+                (!gbeventtriggered && RSC_input->eventCount == 0)) &&  //If nOt In Event Trigger Then allow REC to trigger Only Once
+                gbRecStarted) // User Needs to have Hit start Rec
         {
 
             fishTimeout         =  RSC_input->MinEventframes; //rESET tIMER
@@ -856,13 +862,12 @@ void *camViewEventTrigger(void* tdata){
             cv::drawKeypoints( image_from_bufferA, keypoints_in_mask, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
             cv::drawKeypoints( image_from_bufferA, preykeypoints, im_with_keypoints, cv::Scalar(20,180,20), cv::DrawMatchesFlags::DEFAULT );
             /// SHOW Prey Count //
-            cv::putText(im_with_keypoints,std::to_string(preykeypoints.size()),cv::Point(15,35),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(255,0,0));
+            cv::putText(im_with_keypoints,std::to_string(preykeypoints.size()),cv::Point(40,20),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(255,0,0));
             // Show Recording is ACTIVE
             if (gbEventRecording)
             {
                 cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,cv::FILLED);
             }
-
             if (t >= Reader_input->timeout)
             {
                 cv::putText(im_with_keypoints,"Time-Out reached",cv::Point(25,20),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(255,0,0));
@@ -891,15 +896,16 @@ void *camViewEventTrigger(void* tdata){
 
         ///Tell Recorder that Fish Is Here - if Blob has been Detected
         /// Press r or s  To Force Recording
-        if (c=='r' ) //User Initiated Event Trigger Rec
+        if (c=='r' && !gbEventRecording) //User Initiated Event Trigger Rec
         {
-            //gbEventRecording = true;
             sem_post(&semImgFishDetected); //Trigger an Initial Event By Default
             cout << "Event Triggered by user." << endl;
         }else{
-            if (c=='s' ) //User Initiated Recording
+            if (c=='s' && !gbRecStarted) //User Initiated Recording
             {
+                mtx.lock();
                 gbRecStarted = true;
+                mtx.unlock();
                 tstart   = (double)cv::getTickCount();
                 //gbEventRecording = true;
                 sem_post(&semImgFishDetected); //Trigger an Initial Event By Default
