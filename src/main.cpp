@@ -154,8 +154,9 @@ int main(int argc, char** argv)
     outputType ioutputType      = (outputType)parser.get<int>("outputType");
     bool use_time_stamp         = parser.has("timestamp");
     // Read User set Recording durations for each event and the total recording
-    uint uieventminduration         = parser.get<uint>("mineventduration");
     uint uimaxeventduration_sec     = parser.get<uint>("eventtimeout");
+    uint uieventminduration         = min(uimaxeventduration_sec,parser.get<uint>("mineventduration"));
+
     uint uimaxsessionduration_sec   = parser.get<uint>("timeout");
 
     gbeventtriggered            = parser.get<bool>("motiontriggered");
@@ -352,12 +353,6 @@ int main(int argc, char** argv)
     RSC_input_camB.MinEventframes     =  (uint)(uimaxsessionduration_sec*fFrameRateB); //min duration of an event in frames
     RSC_input_camB.eventCount         = 0;//IMg Detection will increment this
 
-    circular_video_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile,ioutputType,fFrameRateB);
-    RSC_input_camB.pcircbuffer = &circ_buffer_camB;
-
-    /// Start Top Camera Recording Thread / BOOST Thread Version
-    //using boost thread here as join is blocking
-
     struct observer_thread_data ReaderFnArgs;
     ReaderFnArgs.mode           = 0; //How to Save File Mode
     ReaderFnArgs.proc_folder    = soutFolder;
@@ -366,11 +361,28 @@ int main(int argc, char** argv)
     ReaderFnArgs.format         = ZR_OUTPICFORMAT;
     ReaderFnArgs.timeout        = uimaxsessionduration_sec;
     ReaderFnArgs.pcircbufferA = &circ_buffer_camA; //So to Trigger Dumping of event Antecedent frames
-    ReaderFnArgs.pcircbufferB = &circ_buffer_camB; //So to Trigger Dumping of event Antecedent frames
+    ReaderFnArgs.pcircbufferB = 0; //Will Initi If DualCam Is on
 
 
+    /// if dualcam  -> Start 2nd Camera Recording Thread / BOOST Thread Version
+    //using boost thread here as join is blocking
+    boost::thread *T_REC_B = 0;
+    if (bdualCam){
+        if (camB.IsConnected())
+        {
+            circular_video_buffer_ts circ_buffer_camB(5,RSC_input_camB.proc_folder,&bufferfile,ioutputType,fFrameRateB);
+            RSC_input_camB.pcircbuffer = &circ_buffer_camB;
+            ReaderFnArgs.pcircbufferB = &circ_buffer_camB; //So to Trigger Dumping of event Antecedent frames
+
+            T_REC_B = new boost::thread(rec_onDisk_camB, boost::ref(RSC_input_camB) ) ;
+            camB.StartCapture();
+            if(T_REC_B->joinable()) //Cam B
+                T_REC_B->join();
+        }
+     }
 
 
+    /// Display and Event-Trigger Thread
     if (pthread_create(&tidDisplay, NULL, &camViewEventTrigger, (void *)&ReaderFnArgs) != 0) {
         printf("Oh Ohh... Thread for Camera Display ReadImageSeq could not start :( \n");
         camA.StopCapture();
@@ -379,19 +391,7 @@ int main(int argc, char** argv)
     }
 
 
-    //pthread_join(tidRec, NULL); //Wait Until Done / Join Main Thread
-    boost::thread *T_REC_B = 0;
-    if (bdualCam){
-        if (camB.IsConnected())
-        {
-            T_REC_B = new boost::thread(rec_onDisk_camB, boost::ref(RSC_input_camB) ) ;
-            camB.StartCapture();
-        }
-     }
 
-
-    //if(T_REC_B.joinable()) //Cam B
-    //    T_REC_B.join();
     //need the monitor both threads to join/ exit for the programme to stop Normally - Otherwise Mutex may be locked
     pthread_join(tidDisplay, NULL); //Wait Until Done / Join Main Thread
     pthread_join(tidRec, NULL); //Wait Until Done / Let it Join Main Thread
@@ -400,13 +400,14 @@ int main(int argc, char** argv)
     if (T_REC_B)
         T_REC_B->detach();
 
+    sem_destroy(&semImgCapCount);
+    sem_destroy(&semImgFishDetected);
+
     pthread_detach(tidRec);
     pthread_detach(tidDisplay);
     //usleep(5000); //Pause For all activity to finish
 
 
-    sem_destroy(&semImgCapCount);
-    sem_destroy(&semImgFishDetected);
     //delete(pVideoWriterA);
     std::cout <<  std::endl << "~~ Done ~~" << std::endl;
 
@@ -422,7 +423,7 @@ int main(int argc, char** argv)
         }
     }
 
-    std::exit(EXIT_SUCCESS);
+    //std::exit(EXIT_SUCCESS);
     //cam.StopCapture();
    // cam.Disconnect();
 

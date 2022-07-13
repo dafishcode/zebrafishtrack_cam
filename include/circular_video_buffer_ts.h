@@ -40,7 +40,14 @@ public:
     typedef boost::mutex::scoped_lock slock;
 
     circular_video_buffer_ts() {}
+    ~circular_video_buffer_ts()
+    {
+        slock lk(monitor);
+        if (moVideowriter.isOpened())
+            moVideowriter.release();
 
+        //monitor.unlock();
+    }
     circular_video_buffer_ts(int n, string pf,ofstream* lf, outputType filetype=zCam_RAWVID, double vidfps = 0.0) {
         circ_buff_img.set_capacity(n);
         frame_index.set_capacity(n);
@@ -157,6 +164,7 @@ public:
         else
             mszFrame = cv::Size(circ_buff_img[0].cols,circ_buff_img[0].rows);
 
+
         //QDir outDir( QString::fromStdString(mproc_folder) );
 
         auto p = boost::filesystem::path(mproc_folder);
@@ -245,6 +253,7 @@ public:
 
         if ( !moVideowriter.isOpened() ) //if not initialize the VideoWriter successfully, exit
         {
+             slock lk(monitor);
              //Open New Stream given image Sizes
              if (!openNewVideoStream())
                 cerr << "ERROR: Failed to write circular buffer to video, videoWriter not opened" << endl;

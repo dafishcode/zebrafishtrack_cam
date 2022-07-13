@@ -1,3 +1,4 @@
+#include <string.h>
 #include <iostream>
 #include <iomanip> //For setprecision
 #include <sstream>
@@ -21,6 +22,7 @@
 #include <FlyCapture2.h>
 #include <Utilities.h>
 #include <CameraBase.h>
+
 
 #include"../include/util.h"
 #include"../include/circular_video_buffer_ts.h"
@@ -537,7 +539,7 @@ void* rec_onDisk_camA(void *tdata)
     //string outfolder = RSC_input->proc_folder + "/" + fixedLengthString(RSC_input->eventCount,3) ;
     //RSC_input->pcircbuffer->set_outputfolder(outfolder);
     outfolder = RSC_input->proc_folder;
-    cout<<"RECORDING to " << RSC_input->proc_folder << endl;
+    cout<<"Output set to " << RSC_input->proc_folder << endl;
 
     ms0            = cv::getTickCount();
 
@@ -657,7 +659,7 @@ void* rec_onDisk_camA(void *tdata)
                fishTimeout--;
        }
 
-        //Fish Just Appeared & in Motion Event Trigger mode - Count Event And Start Recording
+        /// Fish Event Triggered mode - Count Event And Start Recording
         /// Check Recording Period Has not timedout
         if (fishFlag > 0 && !gbEventRecording && !gbtimeoutreached && gbeventtriggered)
         {
@@ -677,7 +679,7 @@ void* rec_onDisk_camA(void *tdata)
             dmFps       = 0.0;
             ms0         = cv::getTickCount(); //Reset Timer 0 Start tm
             gbEventRecording = true; //Timeout of Event - Start A new One
-
+            RSC_input->pcircbuffer->set_recorder_state(gbEventRecording);
         }
 
     } //Main Loop
@@ -714,6 +716,7 @@ void* rec_onDisk_camA(void *tdata)
 
 /// \brief Displays Captured Image / Detects Fish Automatically and signals Recording events that timeout after a period of inactivity
 /// Pressing r triggers an event trigger manually
+/// Requires User to press s to initiate Recording - Otherwise Stuck in LIve view and timer not initiated
 ///
 void *camViewEventTrigger(void* tdata){
     const double dBGLearningRate = 0.001;
@@ -734,7 +737,7 @@ void *camViewEventTrigger(void* tdata){
 
     // Detect blobs.
 
-    std::vector<cv::KeyPoint> keypoints;
+    std::vector<cv::KeyPoint> fishkeypoints,preykeypoints;
     std::vector<cv::KeyPoint> keypoints_in_mask;
 
     cv::SimpleBlobDetector::Params params;
@@ -755,12 +758,20 @@ void *camViewEventTrigger(void* tdata){
     /////An inertia ratio of 0 will yield elongated blobs (closer to lines)
     ///  and an inertia ratio of 1 will yield blobs where the area is more concentrated toward the center (closer to circles).
     params.filterByInertia      = false;
-    params.maxInertiaRatio      = 0.5;
+    params.minInertiaRatio      = 0.2;
+    params.maxInertiaRatio      = 0.8;
 
     //params.filterByInertia = true;
 
     // Set up the detector with default parameters.
-    cv::Ptr<cv::SimpleBlobDetector> detector = cv::SimpleBlobDetector::create(params);
+    cv::Ptr<cv::SimpleBlobDetector> fishdetector = cv::SimpleBlobDetector::create(params);
+    // Filter Prey Blobs- Count Prey//
+    params.minArea = 8;
+    params.maxArea = 100;
+    params.filterByInertia      = true;
+    params.minInertiaRatio      = 0.3;
+    params.maxInertiaRatio      = 0.9;
+    cv::Ptr<cv::SimpleBlobDetector> preydetector = cv::SimpleBlobDetector::create(params);
 
     struct observer_thread_data * Reader_input; //Get Thread Parameters
 
@@ -772,33 +783,32 @@ void *camViewEventTrigger(void* tdata){
     gframeMask.convertTo(gframeMask,CV_8UC1);
 
 
-    cout << "Reading image sequence into buffer. " << endl <<
-            "* Press s to start recording and q to exit." << endl;
-
     char c          = '1';
     double tstart   = (double)cv::getTickCount();
     double t        = 0;
     double lastRept = 0;
 
-    std::cout << std::setprecision(4) << (Reader_input->timeout-t)/60.0 << " minutes left" << std::endl;
+    std::cout << "Will record for " << std::setprecision(4) << (Reader_input->timeout-t)/60.0 << " minutes" << std::endl;
+
+    cout << "Reading image sequence into buffer. " << endl <<
+            "* Press s to start recording and q to exit *" << endl;
 
     while(c!='q' && (t < (Reader_input->timeout+1) || gbEventRecording)){
         c=cv::waitKey(20);
-        if (c=='s') //User Initiated Recording
-        {
-            gbRecStarted = true;
-            sem_post(&semImgFishDetected); //Trigger an Initial Event By Default
-        }
 
-        if (!gbRecStarted)
-            tstart   = (double)cv::getTickCount(); //Recording Not Started Freeze time To Now -
+
+        //if (!gbRecStarted)
+        //    tstart   = (double)cv::getTickCount(); //Recording Not Started Freeze time To Now -
 
         t = ((double)cv::getTickCount() - tstart)/cv::getTickFrequency();
 
         if (t > 1 && (t-lastRept)>60 )
         {
             lastRept = t;
-            std::cout << std::setprecision(4) << round((Reader_input->timeout-t)/60.0) << " minutes left" << std::endl;
+            if (gbRecStarted)
+                std::cout << std::setprecision(4) << round((Reader_input->timeout-t)/60.0) << " minutes left" << std::endl;
+            else
+                std::cout << " Waiting for user to press s to start recording..." << std::endl;
         }
         sem_wait(&semImgCapCount); //Wait For Post From Camera Capture
         int value;
@@ -812,7 +822,8 @@ void *camViewEventTrigger(void* tdata){
         cv::Mat image_from_bufferA,image_from_bufferB;
         long int camA_frame_counter, camB_frame_counter;
         Reader_input->pcircbufferA->retrieve_last(image_from_bufferA, camA_frame_counter);
-        Reader_input->pcircbufferB->retrieve_last(image_from_bufferB, camB_frame_counter);
+        if (Reader_input->pcircbufferB)
+            Reader_input->pcircbufferB->retrieve_last(image_from_bufferB, camB_frame_counter);
         //gframeBuffer.copyTo(image_from_buffer); //Old and direct  Way of obtaining last image
 
         if(!image_from_bufferA.empty())
@@ -823,14 +834,15 @@ void *camViewEventTrigger(void* tdata){
             //Apply MOG BG Substraction - To Remove Any artificial Triggering
             // (For example When doing the barrie experiments )
             pMOG2->apply(image_from_bufferA, fgMaskMOG2,dBGLearningRate);
-            detector->detect( fgMaskMOG2, keypoints,gframeMask); //frameMask
+            fishdetector->detect( fgMaskMOG2, fishkeypoints,gframeMask); //frameMask
+            preydetector->detect( fgMaskMOG2, preykeypoints,gframeMask); //frameMask
 
-            //Mask Is Ignored so Custom Solution Required
+            /// \note : Mask Is Ignored so Custom Solution Required
             //for (cv::KeyPoint &kp : keypoints)
             keypoints_in_mask.clear();
-            for(int i=0;i<keypoints.size();i++)
+            for(int i=0;i<fishkeypoints.size();i++)
             {
-                cv::KeyPoint kp = keypoints[i];
+                cv::KeyPoint kp = fishkeypoints[i];
                 int maskVal=(int)gframeMask.at<uchar>(kp.pt);
                 if (maskVal > 0)
                      keypoints_in_mask.push_back(kp);
@@ -840,8 +852,12 @@ void *camViewEventTrigger(void* tdata){
             // Draw detected blobs as red circles.
             // DrawMatchesFlags::DRAW_RICH_KEYPOINTS flag ensures the size of the circle corresponds to the size of blob
             image_from_bufferA.copyTo(image_from_bufferA,gframeMask); //mask Source Image
-            cv::drawKeypoints( image_from_bufferA, keypoints_in_mask, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
             // Show blobs
+            cv::drawKeypoints( image_from_bufferA, keypoints_in_mask, im_with_keypoints, cv::Scalar(0,0,255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
+            cv::drawKeypoints( image_from_bufferA, preykeypoints, im_with_keypoints, cv::Scalar(20,180,20), cv::DrawMatchesFlags::DEFAULT );
+            /// SHOW Prey Count //
+            cv::putText(im_with_keypoints,std::to_string(preykeypoints.size()),cv::Point(15,35),cv::FONT_HERSHEY_COMPLEX,0.5,CV_RGB(255,0,0));
+            // Show Recording is ACTIVE
             if (gbEventRecording)
             {
                 cv::circle(im_with_keypoints,cv::Point(20,20),5,CV_RGB(255,0,0),-1,cv::FILLED);
@@ -849,12 +865,11 @@ void *camViewEventTrigger(void* tdata){
 
             if (t >= Reader_input->timeout)
             {
-                cv::putText(im_with_keypoints,"Time-Out reached",cv::Point(20,20),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(255,0,0));
+                cv::putText(im_with_keypoints,"Time-Out reached",cv::Point(25,20),cv::FONT_HERSHEY_COMPLEX,0.8,CV_RGB(255,0,0));
                 gbtimeoutreached = true; //Setting to true stops new events starting once this ones times out
 
             }
             //Show Masked Version
-
             cv::circle(im_with_keypoints,cv::Point(gframeMask.cols/2,gframeMask.rows/2),gframeMask.cols/2-50,CV_RGB(0,205,15),1,cv::LINE_8);
 
             cv::imshow(Reader_input->windisplay, im_with_keypoints );
@@ -875,20 +890,35 @@ void *camViewEventTrigger(void* tdata){
         ///Process Image - Check If Fish Is in there
 
         ///Tell Recorder that Fish Is Here - if Blob has been Detected
-        /// Press r To Force Recording
-        sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
-        //Post That Fish Have been Found if we obtain Filtered Masks or if recorder is in Continuous Recording mode
-        if ((fishFlag ==0 && keypoints_in_mask.size() > 0) || c =='r' || !gbeventtriggered)
+        /// Press r or s  To Force Recording
+        if (c=='r' ) //User Initiated Event Trigger Rec
         {
-            //Signal that to Initiate Recording on rec thread
-            sem_post(&semImgFishDetected);
-            //Moved to rec_cam thread Reader_input->pcircbufferA->writeNewFramesToImageSequence(); //Save recent Frames preceding Trigger
-        }
-
-        //The semaphore will be decremented if its value is greater than zero. If the value of the semaphore is zero, then sem_trywait() will return -1 and set errno to EAGAIN
-        if (keypoints_in_mask.size() == 0) //There are no fish / Decremend Semaphore - But dont Lock
-              sem_trywait(&semImgFishDetected);
-
+            //gbEventRecording = true;
+            sem_post(&semImgFishDetected); //Trigger an Initial Event By Default
+            cout << "Event Triggered by user." << endl;
+        }else{
+            if (c=='s' ) //User Initiated Recording
+            {
+                gbRecStarted = true;
+                tstart   = (double)cv::getTickCount();
+                //gbEventRecording = true;
+                sem_post(&semImgFishDetected); //Trigger an Initial Event By Default
+                cout << "REC started by user." << endl;
+            }else{
+                sem_getvalue(&semImgFishDetected, &fishFlag); //Read Current Frame
+                //Post That Fish Have been Found if we obtain Filtered Masks or if recorder is in Continuous Recording mode
+                if ((fishFlag == 0 && keypoints_in_mask.size() > 0) && gbRecStarted )
+                {
+                    //Signal that to Initiate Recording on rec thread
+                    sem_post(&semImgFishDetected);
+                    //Moved to rec_cam thread Reader_input->pcircbufferA->writeNewFramesToImageSequence(); //Save recent Frames preceding Trigger
+                }else{
+                  //The semaphore will be decremented if its value is greater than zero. If the value of the semaphore is zero, then sem_trywait() will return -1 and set errno to EAGAIN
+                  if (keypoints_in_mask.size() == 0  && gbRecStarted) //There are no fish / Decremend Semaphore - But dont Lock
+                          sem_trywait(&semImgFishDetected);
+                    }
+            }
+       }
 
 
     } //Main Loop Wait for control input
@@ -897,11 +927,13 @@ void *camViewEventTrigger(void* tdata){
     tout.tv_sec = 1;
     tout.tv_nsec = 0;
     sem_timedwait(&semImgFishDetected,&tout); //Try Decrement Value Of Fish Exists - And So Stop Recording
-    gbrun = false; //Flag that stops the inf loop of recorder.
-
-    detector->clear();
+    mtx.lock();
+        gbrun = false; //Flag that stops the inf loop of recorder.
+    mtx.unlock();
+    fishdetector->clear();
     Reader_input->pcircbufferA->set_recorder_state(false);
-    Reader_input->pcircbufferB->set_recorder_state(false);
+    if (Reader_input->pcircbufferB)
+        Reader_input->pcircbufferB->set_recorder_state(false);
 
     if (t >= Reader_input->timeout)
     {
